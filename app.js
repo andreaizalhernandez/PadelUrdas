@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const CFG = window.PADELURDAS_CONFIG || {};
-const VERSION = '15-nov-i';
+const VERSION = '15-nov-j';
 
 /* altura real de la pantalla (iOS/Android): evita huecos bajo la barra */
 function fitApp() {
@@ -467,7 +467,7 @@ function render() {
   pill.textContent = S.offline ? `Sin conexión · ${q} por enviar` : 'Guardando…';
   const c = $('#conn'), cs = S.conn.state;
   c.className = 'conn ' + cs;
-  c.querySelector('span').textContent = { demo: 'Demo', checking: 'Conectando…', ok: 'Excel conectado', error: 'Sin conexión' }[cs];
+  c.querySelector('span').textContent = { demo: 'Demo', checking: 'Conectando…', ok: 'Conectado', error: 'Sin conexión' }[cs];
   const b = $('#banner');
   b.hidden = cs === 'ok' || cs === 'checking';
   b.className = 'banner' + (cs === 'error' ? ' bad' : '');
