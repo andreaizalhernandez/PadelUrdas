@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Padelurdas</title>
-<meta name="theme-color" content="#0b1f1a">
-<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#f3faea">
+<meta name="color-scheme" content="light dark">
+<script>(function(){try{var t=localStorage.getItem('padel.theme');t=t?JSON.parse(t):'light';var d=t==='dark'||(t==='auto'&&matchMedia('(prefers-color-scheme:dark)').matches);if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;document.querySelector('meta[name=theme-color]').content=d?'#07140f':'#f3faea'}catch(e){}})()</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Padelurdas">
@@ -16,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700..800&family=Plus+Jakarta+Sans:wght@500..800&display=swap">
-<link rel="stylesheet" href="app.css?v=d">
+<link rel="stylesheet" href="app.css?v=e">
 </head>
 <body>
 <div id="app">
@@ -26,6 +27,7 @@
     <span id="sync" class="pill" hidden></span>
     <button id="conn" class="conn checking" data-act="settings" aria-label="Estado de la conexión"><i></i><span>Conectando…</span></button>
     <button class="icon-btn" data-act="refresh" aria-label="Actualizar"></button>
+    <button class="icon-btn" data-act="theme-next" id="themebtn" aria-label="Cambiar entre claro y oscuro"></button>
     <button class="icon-btn" data-act="settings" aria-label="Ajustes"></button>
   </div>
 </header>
@@ -57,6 +59,8 @@
 <dialog id="settings">
   <form method="dialog" class="dlg">
     <h2>Ajustes</h2>
+    <label>Apariencia</label>
+    <div class="seg" id="seg"><button type="button" data-act="theme" data-t="light">☀️ Claro</button><button type="button" data-act="theme" data-t="dark">🌙 Oscuro</button><button type="button" data-act="theme" data-t="auto">Auto</button></div>
     <label for="apiurl">URL de tu Apps Script</label>
     <input id="apiurl" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocapitalize="off" spellcheck="false">
     <p id="setmsg" class="hint"></p>
@@ -72,7 +76,7 @@
   </form>
 </dialog>
 
-<script src="config.js?v=d"></script>
-<script src="app.js?v=d"></script>
+<script src="config.js?v=e"></script>
+<script src="app.js?v=e"></script>
 </body>
 </html>

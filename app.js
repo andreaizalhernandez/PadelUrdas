@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const CFG = window.PADELURDAS_CONFIG || {};
-const VERSION = '15-nov-d';
+const VERSION = '15-nov-e';
 
 /* ---------- utilidades ---------- */
 const LS = {
@@ -565,6 +565,8 @@ document.addEventListener('click', ev => {
   else if (a === 'filter') { S.filter = el.dataset.p; render(); }
   else if (a === 'preset') { S.rep = { preset: el.dataset.p, from: '', to: '' }; render(); }
   else if (a === 'print') { try { window.print(); } catch { toast('Usa Compartir → Imprimir de tu navegador', { err: true }); } }
+  else if (a === 'theme') setTheme(el.dataset.t);
+  else if (a === 'theme-next') setTheme(resolvedTheme() === 'dark' ? 'light' : 'dark');
   else if (a === 'settings') openSettings();
   else if (a === 'connect') connect();
   else if (a === 'hard') hardRefresh();
@@ -589,7 +591,22 @@ async function hardRefresh() {
   location.reload();
 }
 
+const SUN = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const MOON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
+const themePref = () => LS.get('padel.theme', 'light');
+const resolvedTheme = () => { const t = themePref(); return t === 'auto' ? (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light') : t; };
+function applyTheme() {
+  const t = themePref(), r = resolvedTheme();
+  if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = r === 'dark' ? '#07140f' : '#f3faea';
+  const b = $('#themebtn'); if (b) b.innerHTML = r === 'dark' ? SUN : MOON;
+  document.querySelectorAll('#seg button').forEach(x => x.classList.toggle('on', x.dataset.t === t));
+}
+function setTheme(t) { LS.set('padel.theme', t); applyTheme(); }
+matchMedia('(prefers-color-scheme:dark)').addEventListener?.('change', applyTheme);
+
 function openSettings() {
+  applyTheme();
   const dlg = $('#settings');
   $('#apiurl').value = LS.get('padel.api', '') || CFG.API_URL || '';
   const cur = apiUrl(), src = LS.get('padel.api', '') ? 'guardada en este móvil' : 'de config.js';
@@ -634,6 +651,7 @@ async function installApp() {
 
 /* ---------- arranque ---------- */
 $('[data-act=refresh]').innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>`;
+applyTheme();
 $('.icon-btn[data-act=settings]').innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>`;
 const tabIcons = { apuntar: 'plus', tabla: 'trophy', historial: 'list', informe: 'doc' };
 document.querySelectorAll('.tabs button').forEach(b => { $('i', b).innerHTML = ICON[tabIcons[b.dataset.tab]]; });
