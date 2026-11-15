@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const CFG = window.PADELURDAS_CONFIG || {};
-const VERSION = '15-nov-e';
+const VERSION = '15-nov-f';
 
 /* ---------- utilidades ---------- */
 const LS = {
@@ -147,6 +147,30 @@ const realApi = { get: fresh => request('GET', null, fresh), exec: op => request
 const api = () => (isDemo() ? demoApi : realApi);
 
 /* ---------- estado ---------- */
+const SHAME = [
+  ['👑', 'Doble Falta de Oro', 'La cerveza oficial de la pista corre a su cargo'],
+  ['🥈', 'Plata del saque flojo', 'Pisando fuerte el camino hacia el trono'],
+  ['🥉', 'Bronce del sudor', 'Sospechosa habitual del saque'],
+  ['🛡️', 'Muro de cristal', 'Intocable… de momento']
+];
+function shameHtml(d) {
+  const L = d.faults.slice().sort((a, b) => b.count - a.count);
+  const max = L[0] ? L[0].count : 0;
+  const head = '<h3>El Salón de la Vergüenza</h3>';
+  if (!max) return head + '<div class="shame"><p class="sub" style="margin:0">🎾 Nadie ha fallado el saque todavía… ¡sospechoso! Se rumorea que alguien está sacando con la mano.</p></div>';
+  let pos = 0;
+  const rows = L.map((f, i) => {
+    if (i && f.count !== L[i - 1].count) pos = i;
+    const last = f.count === L[L.length - 1].count && f.count < max;
+    const [ico, ttl, quip] = last ? SHAME[3] : SHAME[Math.min(pos, 2)];
+    const beers = Array.from({ length: Math.min(f.count, 12) }, (_, k) => `<span class="${k < f.paid ? 'bp' : 'bd'}">${I(MUG, 16)}</span>`).join('');
+    return `<li class="${pos === 0 && f.count === max ? 'king' : ''}" style="--i:${i}">
+      <span class="sh-ico">${ico}</span>${av(f.name)}
+      <div class="sh-t"><b>${esc(f.name)}</b><small>${ttl} · ${quip}</small><div class="sh-beers">${beers}${f.count > 12 ? `<em>+${f.count - 12}</em>` : ''}</div></div>
+      <div class="sh-n"><b>${f.count}</b><small>${f.count === 1 ? 'doble falta' : 'dobles faltas'}</small><small class="pg">${f.paid} 🍺 pagadas</small></div></li>`;
+  }).join('');
+  return head + `<ul class="shame">${rows}</ul><p class="sub tip">🍺 llena = ya pagada · 🫗 apagada = pendiente de pagar.</p>`;
+}
 const fin = d => {
   d.faultLog = d.faultLog || [];
   d.standings = computeStandings(d.players, d.matches, d.pts);
@@ -294,6 +318,7 @@ function viewTabla() {
       <div><b>${paid}</b><span>pagadas</span></div>
       <div><b>${pend + paid}</b><span>dobles faltas</span></div>
     </div>
+    ${shameHtml(d)}
     <p class="sub tip">Toca una jarra para marcarla como pagada o volver a dejarla pendiente.</p>
     <div class="faults">${d.faults.map(f => `
       <div class="fault">

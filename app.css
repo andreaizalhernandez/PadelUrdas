@@ -325,3 +325,20 @@ dialog::backdrop{background:var(--back);backdrop-filter:blur(4px)}
 .seg button{padding:10px 4px;border-radius:12px;font-weight:800;font-size:14px;color:var(--mut)}
 .seg button.on{background:var(--lime);color:var(--lime-ink);box-shadow:0 4px 12px -6px var(--tint-b)}
 @media print{:root{color-scheme:light}}
+
+/* ---------- salón de la vergüenza ---------- */
+ul.shame,.shame{list-style:none;margin:0;padding:0}
+ul.shame{display:grid;gap:8px}
+div.shame{padding:14px 16px;border-radius:18px;background:var(--beer-bg);border:1px dashed var(--beer)}
+.shame li{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:10px;padding:12px 14px;border-radius:20px;background:linear-gradient(180deg,var(--sheen),transparent),var(--card);border:1px solid var(--line);animation:rise .45s both;animation-delay:calc(var(--i)*70ms)}
+.shame li.king{background:linear-gradient(135deg,var(--beer-bg),var(--tint2)),var(--card);border-color:var(--beer);box-shadow:0 10px 26px -14px var(--beer)}
+.sh-ico{font-size:22px;width:28px;text-align:center}
+.sh-t{min-width:0}.sh-t b{display:block;font-weight:800;font-size:15px}
+.sh-t>small{display:block;color:var(--mut);font-size:11.5px;font-weight:600;line-height:1.3;margin-top:1px}
+.sh-beers{display:flex;flex-wrap:wrap;gap:1px;margin-top:5px;align-items:center}
+.sh-beers span{display:inline-grid}
+.sh-beers .bp{color:var(--beer)}.sh-beers .bd{color:var(--ov2)}
+.sh-beers em{font-style:normal;font-size:11px;font-weight:800;color:var(--mut);margin-left:3px}
+.sh-n{text-align:right}.sh-n b{font-family:var(--disp);font-size:28px;font-weight:800;line-height:1;color:var(--beer-t)}
+.sh-n small{display:block;font-size:10px;color:var(--mut);font-weight:700}
+.sh-n .pg{margin-top:2px;color:var(--beer-t)}
