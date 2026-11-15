@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const CFG = window.PADELURDAS_CONFIG || {};
-const VERSION = '15-nov-c';
+const VERSION = '15-nov-d';
 
 /* ---------- utilidades ---------- */
 const LS = {
@@ -11,16 +11,18 @@ const LS = {
 };
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clone = o => JSON.parse(JSON.stringify(o));
 const iso = d => { const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 10); };
 const todayISO = () => iso(new Date());
 const parts = s => s.split('-').map(Number);
 const fmtDate = s => { const [y, m, d] = parts(s); return new Date(y, m - 1, d).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }); };
 const fmtMed = s => { const [y, m, d] = parts(s); return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }).replace(/\./g, ''); };
 const fmtTiny = s => { const [y, m, d] = parts(s); return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).replace(/\./g, ''); };
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
 const sig = m => [...m.a, ...m.b, m.sa, m.sb].join('|');
 
 const I = (p, w = 22) => `<svg viewBox="0 0 24 24" width="${w}" height="${w}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const MUG = '<path d="M5 8h10v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8Z" fill="currentColor" fill-opacity=".9"/><path d="M15 10h2a2 2 0 0 1 0 6h-2M8 4c0 1 1 1 1 2M12 4c0 1 1 1 1 2"/>';
 const ICON = {
   plus: I('<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>'),
   trophy: I('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>'),
@@ -30,10 +32,76 @@ const ICON = {
   trash: I('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>', 18),
   cal: I('<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>', 18),
   check: I('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 18),
-  print: I('<path d="M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="7" y="14" width="10" height="7" rx="1"/>', 20),
-  beer: I('<path d="M5 8h10v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8Z"/><path d="M15 10h2a2 2 0 0 1 0 6h-2M8 4c0 1 1 1 1 2M12 4c0 1 1 1 1 2"/>', 20),
-  racket: I('<ellipse cx="14" cy="9" rx="6" ry="7" transform="rotate(35 14 9)"/><path d="M9.5 13.5L4 19M3 20l2 1"/>', 18)
+  undo: I('<path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 2.6-6.4L3 10"/>', 15),
+  print: I('<path d="M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="7" y="14" width="10" height="7" rx="1"/>', 20)
 };
+
+/* ---------- reglas y cálculos ---------- */
+const validScore = (x, y) => { const hi = Math.max(x, y), lo = Math.min(x, y); return hi === 6 && lo >= 0 && lo <= 5; };
+const okMatch = m => m.valid !== false && validScore(m.sa, m.sb);
+const byDate = (x, y) => (x.date || '').localeCompare(y.date || '') || x.row - y.row;
+
+function computeStandings(players, matches, pts) {
+  const s = Object.fromEntries(players.map(p => [p, { name: p, played: 0, wins: 0, losses: 0, tbPts: 0, setsFor: 0, setsAgainst: 0, form: [] }]));
+  for (const m of [...matches].sort(byDate)) {
+    if (!okMatch(m)) continue;
+    const aWin = m.sa > m.sb;
+    [[m.a, m.sa, m.sb, aWin], [m.b, m.sb, m.sa, !aWin]].forEach(([team, f, c, won]) => team.forEach(p => {
+      const r = s[p]; if (!r) return;
+      r.played++; r.setsFor += f; r.setsAgainst += c;   // juegos a favor / en contra
+      if (won) { r.wins++; r.form.push('w'); } else { r.losses++; if (f === 5) { r.tbPts++; r.form.push('t'); } else r.form.push('l'); }
+    }));
+  }
+  const rows = Object.values(s).map(r => ({ ...r, points: r.wins * pts.win + r.tbPts * pts.tb, pct: r.played ? r.wins / r.played : 0 }));
+  rows.sort((x, y) => y.points - x.points || y.wins - x.wins || (y.setsFor - y.setsAgainst) - (x.setsFor - x.setsAgainst));
+  rows.forEach((r, i) => r.pos = i + 1);
+  return rows;
+}
+
+function pairStats(matches) {
+  const m = {};
+  for (const x of matches) {
+    if (!okMatch(x)) continue;
+    [[x.a, x.sa, x.sb], [x.b, x.sb, x.sa]].forEach(([t, f, c]) => {
+      const p = [...t].sort(), k = p.join('|');
+      const r = m[k] || (m[k] = { pair: p, played: 0, wins: 0, gf: 0, ga: 0 });
+      r.played++; r.gf += f; r.ga += c; if (f > c) r.wins++;
+    });
+  }
+  return Object.values(m).sort((a, b) => b.wins / b.played - a.wins / a.played || b.played - a.played || (b.gf - b.ga) - (a.gf - a.ga));
+}
+
+function evolution(d) {
+  const ms = d.matches.filter(okMatch).sort(byDate);
+  const days = [...new Set(ms.map(x => x.date || ''))];
+  const cur = Object.fromEntries(d.players.map(p => [p, 0])), cum = Object.fromEntries(d.players.map(p => [p, [0]]));
+  days.forEach(day => {
+    ms.filter(x => (x.date || '') === day).forEach(x => {
+      const aw = x.sa > x.sb;
+      [[x.a, aw, x.sa], [x.b, !aw, x.sb]].forEach(([t, won, f]) => t.forEach(p => { if (cur[p] === undefined) return; if (won) cur[p] += d.pts.win; else if (f === 5) cur[p] += d.pts.tb; }));
+    });
+    d.players.forEach(p => cum[p].push(cur[p]));
+  });
+  return { days, cum };
+}
+
+/* ---------- operaciones (se aplican al instante en el móvil y luego se envían) ---------- */
+function applyOp(d, op) {
+  d.faultLog = d.faultLog || [];
+  if (op.type === 'add') d.matches.push({ row: op.row, date: op.m.date, a: op.m.a, b: op.m.b, sa: op.m.sa, sb: op.m.sb });
+  else if (op.type === 'del') d.matches = d.matches.filter(x => x.row !== op.row);
+  else if (op.type === 'fadd') d.faultLog.push({ id: op.fid, date: op.date, name: op.name, paid: '' });
+  else if (op.type === 'fdel') d.faultLog = d.faultLog.filter(f => f.id !== op.fid);
+  else if (op.type === 'fpay') { const f = d.faultLog.find(x => x.id === op.fid); if (f) f.paid = op.paid; }
+  return d;
+}
+function toPost(op) {
+  if (op.type === 'add') return { action: 'add', id: op.id, date: op.m.date, a: op.m.a, b: op.m.b, sa: op.m.sa, sb: op.m.sb };
+  if (op.type === 'del') return { action: 'delete', row: op.row, sig: op.sig };
+  if (op.type === 'fadd') return { action: 'fadd', fid: op.fid, name: op.name, date: op.date };
+  if (op.type === 'fdel') return { action: 'fdel', fid: op.fid };
+  return { action: 'fpay', fid: op.fid, paid: op.paid };
+}
 
 /* ---------- datos de ejemplo (modo demo) ---------- */
 const DEMO = {
@@ -48,77 +116,34 @@ const DEMO = {
     { row: 11, date: '2026-10-08', a: ['Txiki', 'Uxue'],   b: ['Andrea', 'Adela'], sa: 6, sb: 5 }
   ],
   faultLog: [
-    { id: 1, date: '2026-09-17', name: 'Uxue', paid: '2026-10-08' }, { id: 2, date: '2026-10-08', name: 'Adela', paid: '' }, { id: 3, date: '2026-10-08', name: 'Uxue', paid: '' }
+    { id: 'd1', date: '2026-09-17', name: 'Uxue', paid: '2026-10-08' }, { id: 'd2', date: '2026-10-08', name: 'Adela', paid: '' }, { id: 'd3', date: '2026-10-08', name: 'Uxue', paid: '' }
   ]
 };
-const validScore = (x, y) => { const hi = Math.max(x, y), lo = Math.min(x, y); return hi === 6 && lo >= 0 && lo <= 5; };
-
-function computeStandings(players, matches, pts) {
-  const s = Object.fromEntries(players.map(p => [p, { name: p, played: 0, wins: 0, losses: 0, tbPts: 0, setsFor: 0, setsAgainst: 0, form: [] }]));
-  const ordered = [...matches].sort((x, y) => (x.date || '').localeCompare(y.date || '') || x.row - y.row);
-  for (const m of ordered) {
-    if (m.valid === false || !validScore(m.sa, m.sb)) continue;
-    const aWin = m.sa > m.sb;
-    [[m.a, m.sa, m.sb, aWin], [m.b, m.sb, m.sa, !aWin]].forEach(([team, f, c, won]) => team.forEach(p => {
-      const r = s[p]; if (!r) return;
-      r.played++; r.setsFor += f; r.setsAgainst += c;   // juegos a favor / en contra
-      if (won) { r.wins++; r.form.push('w'); } else { r.losses++; if (f === 5) { r.tbPts++; r.form.push('t'); } else r.form.push('l'); }
-    }));
-  }
-  const rows = Object.values(s).map(r => ({ ...r, points: r.wins * pts.win + r.tbPts * pts.tb, pct: r.played ? r.wins / r.played : 0 }));
-  rows.sort((x, y) => y.points - x.points || y.wins - x.wins || (y.setsFor - y.setsAgainst) - (x.setsFor - x.setsAgainst));
-  rows.forEach((r, i) => r.pos = i + 1);
-  return rows;
-}
 
 /* ---------- API: demo (local) y real (Apps Script) ---------- */
 const demoApi = {
-  _st() { return LS.get('padel.demo3', JSON.parse(JSON.stringify(DEMO))); },
-  _out(st) { return { players: st.players, pts: st.pts, matches: st.matches, faultLog: st.faultLog }; },
-  async get() { return this._out(this._st()); },
-  async add(m) {
-    const st = this._st(), row = Math.max(5, ...st.matches.map(x => x.row)) + 1;
-    st.matches.push({ row, date: m.date, a: m.a, b: m.b, sa: m.sa, sb: m.sb });
-    LS.set('padel.demo3', st); return { row, data: this._out(st) };
-  },
-  async del(row) { const st = this._st(); st.matches = st.matches.filter(x => x.row !== row); LS.set('padel.demo3', st); return { data: this._out(st) }; },
-  async fault(name, delta, date) {
-    const st = this._st();
-    if (delta > 0) st.faultLog.push({ id: Math.max(0, ...st.faultLog.map(f => f.id)) + 1, date, name, paid: '' });
-    else {
-      const mine = st.faultLog.filter(f => f.name === name && !f.paid);
-      if (!mine.length) throw new Error('No tiene faltas pendientes que quitar');
-      const last = mine[mine.length - 1].id; st.faultLog = st.faultLog.filter(f => f.id !== last);
-    }
-    LS.set('padel.demo3', st); return { data: this._out(st) };
-  },
-  async pay(name, undo, date) {
-    const st = this._st();
-    if (undo) { const p = st.faultLog.filter(f => f.name === name && f.paid).pop(); if (p) p.paid = ''; }
-    else { const p = st.faultLog.find(f => f.name === name && !f.paid); if (!p) throw new Error('No debe ninguna caña'); p.paid = date; }
-    LS.set('padel.demo3', st); return { data: this._out(st) };
+  _st() { return LS.get('padel.demo4', clone(DEMO)); },
+  async get() { return this._st(); },
+  async exec(op) {
+    const st = this._st(); let row = null;
+    if (op.type === 'add') { row = Math.max(5, ...st.matches.map(x => x.row)) + 1; applyOp(st, { ...op, row }); }
+    else applyOp(st, op);
+    LS.set('padel.demo4', st); return { row };
   }
 };
-
 const apiUrl = () => LS.get('padel.api', '') || CFG.API_URL || '';
 const isDemo = () => !apiUrl();
-async function request(method, body) {
+async function request(method, body, fresh) {
   const key = CFG.KEY || '';
   let res;
-  if (method === 'GET') res = await fetch(`${apiUrl()}?action=get&key=${encodeURIComponent(key)}`);
-  else res = await fetch(apiUrl(), { method: 'POST', body: JSON.stringify({ ...body, key }) }); // text/plain: sin preflight CORS
+  if (method === 'GET') res = await fetch(`${apiUrl()}?action=get&key=${encodeURIComponent(key)}${fresh ? '&fresh=1' : ''}`);
+  else res = await fetch(apiUrl(), { method: 'POST', body: JSON.stringify({ ...body, key }) });   // text/plain: sin preflight CORS
   let j;
   try { j = await res.json(); } catch { throw new Error('El script no respondió bien. Revisa que esté publicado para «Cualquier persona».'); }
   if (j.error) throw new Error(j.error);
   return j;
 }
-const realApi = {
-  get: () => request('GET'),
-  add: m => request('POST', { action: 'add', ...m }),
-  del: (row, s) => request('POST', { action: 'delete', row, sig: s }),
-  fault: (name, delta, date) => request('POST', { action: 'fault', name, delta, date }),
-  pay: (name, undo, date) => request('POST', { action: 'pay', name, undo, date })
-};
+const realApi = { get: fresh => request('GET', null, fresh), exec: op => request('POST', toPost(op)) };
 const api = () => (isDemo() ? demoApi : realApi);
 
 /* ---------- estado ---------- */
@@ -126,24 +151,32 @@ const fin = d => {
   d.faultLog = d.faultLog || [];
   d.standings = computeStandings(d.players, d.matches, d.pts);
   d.faults = d.players.map(n => {
-    const mine = d.faultLog.filter(f => f.name === n), paid = mine.filter(f => f.paid).length;
-    return { name: n, count: mine.length, paid, pending: mine.length - paid };
+    const entries = d.faultLog.filter(f => f.name === n), paid = entries.filter(f => f.paid).length;
+    return { name: n, count: entries.length, paid, pending: entries.length - paid, entries };
   });
   return d;
 };
 const S = {
   tab: LS.get('padel.tab', 'apuntar'),
-  data: LS.get('padel.cache', null),
-  loading: false, saving: false,
-  draft: { date: todayISO(), pairing: null, res: null },   // res: {win:'A'|'B', lost:0..5}
+  base: LS.get('padel.base2', null),          // última foto del Excel
+  data: null,                                  // foto + cambios pendientes de enviar
+  queue: LS.get('padel.q2', []),
+  pumping: false, sending: false, offline: false, ver: 0, lastLoad: 0,
+  saving: false,
+  draft: { date: todayISO(), pairing: null, res: null },
   rep: { preset: 'all', from: '', to: '' },
-  queue: LS.get('padel.queue', []),
+  filter: '', logOpen: false,
   conn: { state: 'checking', msg: '' }
 };
-if (S.data) fin(S.data);
-const saveQueue = () => LS.set('padel.queue', S.queue);
-const cache = () => LS.set('padel.cache', S.data);
+const saveQueue = () => LS.set('padel.q2', S.queue);
+const saveBase = () => LS.set('padel.base2', S.base);
 const isNetErr = e => e instanceof TypeError;
+function rebuild() {
+  if (!S.base) { S.data = null; return; }
+  const d = clone(S.base); for (const op of S.queue) applyOp(d, op);
+  S.data = fin(d);
+}
+rebuild();
 
 /* ---------- helpers de vista ---------- */
 const idx = n => Math.max(0, (S.data?.players || []).indexOf(n)) % 4;
@@ -193,12 +226,10 @@ function viewApuntar() {
       <div class="res-title">Ganan <em>${esc(names(A))}</em> · 6 a…</div>${grid('A')}
       <div class="res-title" style="margin-top:16px">Ganan <em>${esc(names(B))}</em> · 6 a…</div>${grid('B')}`}
     ${summary}
-    <button class="btn lime save" data-act="save" ${m && !S.saving ? '' : 'disabled'}>${S.saving ? 'Guardando…' : 'Guardar set'}</button>`;
+    <button class="btn lime save" data-act="save" ${m ? '' : 'disabled'}>Guardar set</button>`;
 }
 
 const formDots = f => `<span class="form" title="Últimos sets">${f.slice(-5).map(x => `<i class="${x}"></i>`).join('')}</span>`;
-
-const mug = (cls) => `<span class="${cls}">${I('<path d="M5 8h10v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8Z" fill="currentColor" fill-opacity=".9"/><path d="M15 10h2a2 2 0 0 1 0 6h-2"/>', 20)}</span>`;
 
 function podium(st) {
   const [f, s2, t] = st, h = { 1: 150, 2: 112, 3: 96 };
@@ -207,13 +238,34 @@ function podium(st) {
   return `<div class="podium">${col(s2, 2)}${col(f, 1)}${col(t, 3)}</div>`;
 }
 
+function chartSvg(d) {
+  const { days, cum } = evolution(d); if (!days.length) return '';
+  const W = 340, H = 180, L = 26, R = 62, T = 12, B = 26, n = days.length;
+  const fin_ = d.players.map(p => cum[p][n]);
+  const top = Math.max(4, Math.ceil(Math.max(...fin_) / 4) * 4);
+  const x = i => L + (W - L - R) * (i / n), y = v => T + (H - T - B) * (1 - v / top);
+  const grid = [0, 1, 2, 3, 4].map(k => { const v = top * k / 4; return `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="gl"/><text x="${L - 6}" y="${y(v) + 3.5}" text-anchor="end" class="gt">${Math.round(v)}</text>`; }).join('');
+  const step = Math.ceil(n / 4);
+  const xl = days.map((dd, i) => ((i + 1) % step === 0 || i === n - 1) ? `<text x="${x(i + 1)}" y="${H - 8}" text-anchor="middle" class="gt">${dd ? esc(fmtTiny(dd)) : ''}</text>` : '').join('');
+  const lines = d.players.map(p => `<path d="${cum[p].map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ')}" fill="none" style="stroke:var(--c${idx(p)})" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${x(n)}" cy="${y(cum[p][n])}" r="3.5" style="fill:var(--c${idx(p)})"/>`).join('');
+  const lab = d.players.map(p => ({ p, y: y(cum[p][n]) })).sort((a, b) => a.y - b.y);
+  lab.forEach((l, i) => { if (i && l.y < lab[i - 1].y + 12) l.y = lab[i - 1].y + 12; });
+  const labels = lab.map(l => `<text x="${W - R + 9}" y="${l.y + 4}" class="gn" style="fill:var(--c${idx(l.p)})">${esc(l.p)} ${cum[l.p][n]}</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" class="chartsvg" role="img" aria-label="Evolución de puntos por día de juego">${grid}${xl}${lines}${labels}</svg>`;
+}
+
+function mugBtn(e) {
+  return `<button class="mug ${e.paid ? 'paid' : 'due'}" data-act="ftoggle" data-id="${esc(e.id)}" title="${e.paid ? 'Pagada · toca para reactivar' : 'Pendiente · toca para marcar como pagada'}" aria-label="${e.paid ? 'Pagada, tocar para reactivar' : 'Pendiente, tocar para marcar como pagada'}">${I(MUG, 22)}</button>`;
+}
+
 function viewTabla() {
   const d = S.data; if (!d) return skeleton();
-  const st = d.standings, valid = d.matches.filter(m => m.valid !== false);
+  const st = d.standings, valid = d.matches.filter(okMatch);
   const last = valid.map(m => m.date).sort().pop();
   const max = Math.max(1, ...st.map(r => r.points));
   const log = [...d.faultLog].reverse();
   const pend = d.faults.reduce((a, f) => a + f.pending, 0), paid = d.faults.reduce((a, f) => a + f.paid, 0);
+  const pairs = pairStats(d.matches);
   return `
     <h1>Clasificación</h1>
     ${valid.length && st.length >= 3 ? podium(st) : ''}
@@ -231,42 +283,52 @@ function viewTabla() {
       <div class="stat"><b>${last ? fmtTiny(last) : '–'}</b><span>último día</span></div>
     </div>
 
+    ${valid.length ? `<h3>Evolución de puntos</h3><div class="chart">${chartSvg(d)}</div>` : ''}
+    ${pairs.length ? `<h3>Mejores parejas</h3><div class="pairs">${pairs.map(p => `
+      <div class="pr">${avs(p.pair)}<div class="pn">${esc(p.pair.join(' + '))}<small>${p.played} set${p.played > 1 ? 's' : ''} · ${p.wins} G · ${p.played - p.wins} P · juegos ${p.gf}–${p.ga}</small></div>
+        <b>${Math.round(p.wins / p.played * 100)}%</b><div class="bar"><i style="width:${Math.round(p.wins / p.played * 100)}%"></i></div></div>`).join('')}</div>` : ''}
+
     <h3>Cervezas por dobles faltas</h3>
     <div class="beer-sum">
       <div><b>${pend}</b><span>por pagar</span></div>
       <div><b>${paid}</b><span>pagadas</span></div>
       <div><b>${pend + paid}</b><span>dobles faltas</span></div>
     </div>
+    <p class="sub tip">Toca una jarra para marcarla como pagada o volver a dejarla pendiente.</p>
     <div class="faults">${d.faults.map(f => `
       <div class="fault">
         <div class="f-top">${av(f.name)}
           <span class="nm">${esc(f.name)}<small class="${f.pending ? 'due' : ''}">${f.pending ? `debe ${f.pending} cerveza${f.pending > 1 ? 's' : ''}` : 'al día'} · ${f.paid} pagada${f.paid === 1 ? '' : 's'}</small></span>
           <div class="stepper">
-            <button class="step" data-act="fault" data-n="${esc(f.name)}" data-d="-1" aria-label="Quitar la última doble falta">−</button>
+            <button class="step" data-act="fault" data-n="${esc(f.name)}" data-d="-1" aria-label="Quitar la última doble falta pendiente">−</button>
             <span class="n">${f.count}</span>
             <button class="step plus" data-act="fault" data-n="${esc(f.name)}" data-d="1" aria-label="Sumar una doble falta">+</button>
           </div>
         </div>
         <div class="f-bot">
-          <div class="mugs">${f.count ? Array.from({ length: Math.min(f.count, 10) }, (_, i) => mug(i < f.paid ? 'paid' : 'due')).join('') + (f.count > 10 ? `<em>+${f.count - 10}</em>` : '') : '<em>Sin dobles faltas</em>'}</div>
+          <div class="mugs">${f.count ? f.entries.slice(-12).map(mugBtn).join('') + (f.count > 12 ? `<em>+${f.count - 12}</em>` : '') : '<em>Sin dobles faltas</em>'}</div>
           <button class="pay" data-act="pay" data-n="${esc(f.name)}" ${f.pending ? '' : 'disabled'}>${ICON.check} Ha pagado</button>
         </div>
       </div>`).join('')}</div>
-    <details class="log"><summary>Registro de dobles faltas <b>${log.length}</b></summary>
-      ${log.length ? `<ul>${log.map(f => `<li>${av(f.name, true)}<span class="w">${esc(f.name)}<small>${f.date ? esc(fmtMed(f.date)) : 'Antes de la app'}</small></span>
-        ${f.paid ? `<span class="tag ok">Pagada${f.paid === '1' ? '' : ' · ' + esc(fmtTiny(f.paid))}</span>` : `<span class="tag due">Debe</span>`}</li>`).join('')}</ul>` : `<p class="sub" style="padding:8px 4px">Todavía no hay ninguna.</p>`}
+    <details class="log" ${S.logOpen ? 'open' : ''}><summary>Registro de dobles faltas <b>${log.length}</b></summary>
+      ${log.length ? `<ul>${log.map(f => `<li>${av(f.name, true)}<span class="w">${esc(f.name)}<small>${f.date ? esc(fmtMed(f.date)) : 'Antes de la app'}${f.paid && f.paid !== '1' ? ' · pagada el ' + esc(fmtTiny(f.paid)) : ''}</small></span>
+        ${f.paid ? `<button class="tag ok" data-act="ftoggle" data-id="${esc(f.id)}">${ICON.undo} Reactivar</button>` : `<button class="tag due" data-act="ftoggle" data-id="${esc(f.id)}">Marcar pagada</button>`}
+        <button class="del" data-act="fdel" data-id="${esc(f.id)}" aria-label="Borrar esta doble falta">${ICON.trash}</button></li>`).join('')}</ul>` : `<p class="sub" style="padding:8px 4px">Todavía no hay ninguna.</p>`}
     </details>`;
 }
 
 function viewHistorial() {
   const d = S.data; if (!d) return skeleton();
-  const ms = [...d.matches].sort((x, y) => (y.date || '').localeCompare(x.date || '') || y.row - x.row);
-  if (!ms.length) return `<h1>Sets</h1><div class="empty">Todavía no hay sets.<br>Apunta el primero en la pestaña «Apuntar».</div>`;
-  let out = `<h1>Sets</h1>`, day = null;
+  const f = S.filter;
+  const ms = d.matches.filter(m => !f || m.a.includes(f) || m.b.includes(f)).sort((x, y) => byDate(y, x));
+  const chips = `<div class="chips">${['', ...d.players].map(p => `<button class="chip ${f === p ? 'on' : ''}" data-act="filter" data-p="${esc(p)}">${p ? esc(p) : 'Todas'}</button>`).join('')}</div>`;
+  if (!ms.length) return `<h1>Sets</h1>${chips}<div class="empty">No hay sets${f ? ' de ' + esc(f) : ' todavía'}.<br>Apunta uno en la pestaña «Apuntar».</div>`;
+  let out = `<h1>Sets</h1>${chips}`, day = null;
   for (const m of ms) {
     if (m.date !== day) { day = m.date; out += `<div class="day">${esc(m.date ? fmtDate(m.date) : 'Sin fecha')}</div>`; }
     const aw = m.sa > m.sb, ok = m.valid !== false, tbm = ok && Math.min(m.sa, m.sb) === 5;
-    out += `<div class="match ${ok ? '' : 'bad'}">
+    const mine = f && (m.a.includes(f) ? aw : !aw);
+    out += `<div class="match ${ok ? '' : 'bad'} ${f ? (mine ? 'won' : 'lost') : ''}">
       <div class="side ${ok && aw ? 'win' : ''}">${avs(m.a)}<span>${esc(m.a.join(' · '))}</span></div>
       <div class="score"><span class="${ok && aw ? 'w' : ''}">${m.sa ?? ''}</span><em>–</em><span class="${ok && !aw ? 'w' : ''}">${m.sb ?? ''}</span>${tbm ? '<small>tie-break</small>' : ''}</div>
       <div class="side r ${ok && !aw ? 'win' : ''}">${avs(m.b)}<span>${esc(m.b.join(' · '))}</span></div>
@@ -290,7 +352,7 @@ const inRange = (date, { from, to }) => date ? (!from || date >= from) && (!to |
 function viewInforme() {
   const d = S.data; if (!d) return skeleton();
   const rg = repRange(), r = S.rep;
-  const ms = d.matches.filter(m => m.valid !== false && inRange(m.date, rg)).sort((x, y) => (x.date || '').localeCompare(y.date || '') || x.row - y.row);
+  const ms = d.matches.filter(m => m.valid !== false && inRange(m.date, rg)).sort(byDate);
   const st = computeStandings(d.players, ms, d.pts);
   const flog = d.faultLog.filter(f => inRange(f.date, rg));
   const dates = ms.map(m => m.date).filter(Boolean);
@@ -298,6 +360,7 @@ function viewInforme() {
   const days = new Set(dates).size;
   const chips = [['all', 'Todo'], ['month', 'Este mes'], ['30', '30 días']].map(([k, l]) => `<button class="chip ${r.preset === k ? 'on' : ''}" data-act="preset" data-p="${k}">${l}</button>`).join('');
   const faultsBy = n => flog.filter(f => f.name === n);
+  const pairs = pairStats(ms);
   let lastDay = null;
   return `
     <h1>Informe</h1>
@@ -324,6 +387,11 @@ function viewInforme() {
       </table></div>
       <p class="p-note">G = sets ganados · P = sets perdidos · Pts: ${d.pts.win} por set ganado y ${d.pts.tb} si se pierde 5–6 (tie-break).</p>
 
+      ${pairs.length ? `<h4>Parejas</h4><div class="tw"><table>
+        <thead><tr><th class="l">Pareja</th><th>Sets</th><th>G</th><th>P</th><th>%</th><th>Juegos</th></tr></thead>
+        <tbody>${pairs.map(p => `<tr><td class="l"><b>${esc(p.pair.join(' + '))}</b></td><td>${p.played}</td><td>${p.wins}</td><td>${p.played - p.wins}</td><td>${Math.round(p.wins / p.played * 100)}%</td><td>${p.gf}–${p.ga}</td></tr>`).join('')}</tbody>
+      </table></div>` : ''}
+
       <h4>Sets jugados</h4>
       ${ms.length ? `<div class="tw"><table class="sets">
         <thead><tr><th class="l">Día</th><th class="l">Pareja A</th><th>Res.</th><th class="l">Pareja B</th></tr></thead>
@@ -343,12 +411,12 @@ function viewInforme() {
 /* ---------- render ---------- */
 function render() {
   const v = $('#view');
-  v.innerHTML = { apuntar: viewApuntar, tabla: viewTabla, historial: viewHistorial, informe: viewInforme }[S.tab]();
+  v.innerHTML = '<div class="page">' + ({ apuntar: viewApuntar, tabla: viewTabla, historial: viewHistorial, informe: viewInforme }[S.tab]()) + '</div>';
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
   const pill = $('#sync'), q = S.queue.length;
-  pill.hidden = !(q || S.loading);
-  pill.className = 'pill' + (q ? ' warn' : '');
-  pill.textContent = q ? `${q} pendiente${q > 1 ? 's' : ''}` : 'Sincronizando…';
+  pill.hidden = !q;
+  pill.className = 'pill' + (S.offline ? ' warn' : '');
+  pill.textContent = S.offline ? `Sin conexión · ${q} por enviar` : 'Guardando…';
   const c = $('#conn'), cs = S.conn.state;
   c.className = 'conn ' + cs;
   c.querySelector('span').textContent = { demo: 'Demo', checking: 'Conectando…', ok: 'Excel conectado', error: 'Sin conexión' }[cs];
@@ -380,86 +448,129 @@ function toast(msg, opts = {}) {
   clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; S.undo = null; }, opts.undo ? 7000 : 3500);
 }
 
-/* ---------- acciones ---------- */
-async function load(quiet) {
-  S.loading = !quiet;
-  S.conn = isDemo() ? { state: 'demo', msg: '' } : { state: S.conn.state === 'ok' ? 'ok' : 'checking', msg: '' };
-  render();
+/* ---------- guardar: primero en el móvil, luego se envía en segundo plano ---------- */
+function enqueue(op) {
+  op.qid = uid(); S.ver++; S.queue.push(op); saveQueue(); rebuild(); render(); pump();
+  return op;
+}
+let retryT;
+async function pump() {
+  if (S.pumping) return;
+  S.pumping = true;
   try {
-    S.data = fin(await api().get()); cache();
-    if (S.data.sheetUrl) LS.set('padel.sheet', S.data.sheetUrl);
+    while (S.queue.length) {
+      const op = S.queue[0]; let r;
+      S.sending = true;
+      try { r = await api().exec(op); }
+      catch (e) {
+        S.sending = false;
+        if (isNetErr(e)) { S.offline = true; render(); clearTimeout(retryT); retryT = setTimeout(pump, 8000); break; }
+        S.queue.shift(); S.ver++; saveQueue();                     // el Excel lo rechazó: se descarta y se vuelve a leer
+        toast(e.message, { err: true });
+        try { S.base = await api().get(true); saveBase(); } catch {}
+        rebuild(); render(); continue;
+      }
+      S.sending = false; S.offline = false; S.ver++;
+      S.queue.shift();
+      if (op.type === 'add') {
+        if (r.row != null) {
+          for (const o of S.queue) if (o.type === 'del' && o.row === op.row) o.row = r.row;   // quien borró el set antes de que llegara
+          applyOp(S.base, { ...op, row: r.row }); op.row = r.row;
+        }
+      } else applyOp(S.base, op);
+      if (!isDemo()) S.conn = { state: 'ok', msg: '' };
+      saveBase(); saveQueue(); rebuild(); render();
+    }
+  } finally { S.pumping = false; S.sending = false; render(); }
+}
+
+/* ---------- lectura ---------- */
+async function load(opts = {}) {
+  if (S.queue.length) { pump(); return; }
+  const v = S.ver;
+  S.conn = isDemo() ? { state: 'demo', msg: '' } : { state: S.conn.state === 'ok' ? 'ok' : 'checking', msg: '' };
+  if (!S.base) render();
+  try {
+    const data = await api().get(!!opts.fresh);
+    if (v !== S.ver) return;                                      // mientras tanto se guardó algo: esta lectura ya no vale
+    S.base = data; saveBase(); S.lastLoad = Date.now();
+    if (data.sheetUrl) LS.set('padel.sheet', data.sheetUrl);
     if (!isDemo()) S.conn = { state: 'ok', msg: '' };
+    rebuild();
   } catch (e) {
     S.conn = { state: 'error', msg: isNetErr(e) ? 'no se llega al script (revisa la URL y que el acceso sea «Cualquier persona»)' : e.message };
-    if (!S.data) toast(S.conn.msg, { err: true });
+    if (!S.base) toast(S.conn.msg, { err: true });
   }
-  S.loading = false; render();
+  render();
 }
+
+/* ---------- acciones ---------- */
 function resetDraft() { S.draft = { date: S.draft.date, pairing: null, res: null }; }
 
-async function save() {
-  const m = currentMatch(); if (!m || S.saving) return;
-  m.id = uid(); S.saving = true; render();
-  try {
-    const r = await api().add(m);
-    S.data = fin(r.data); cache(); resetDraft(); S.saving = false; render(); burst();
-    toast('Set guardado', { undo: async () => {
-      try { const x = await api().del(r.row, sig(m)); S.data = fin(x.data); cache(); render(); toast('Set deshecho'); }
-      catch (e) { toast(e.message, { err: true }); }
-    } });
-  } catch (e) {
-    S.saving = false;
-    if (isNetErr(e)) { S.queue.push(m); saveQueue(); resetDraft(); render(); toast('Sin conexión: se enviará solo al volver'); }
-    else { render(); toast(e.message, { err: true }); }
-  }
+function save() {
+  const m = currentMatch(); if (!m) return;
+  const op = enqueue({ type: 'add', id: uid(), m, row: -Date.now() });
+  resetDraft(); render(); burst();
+  toast('Set guardado', { undo: () => undoAdd(op) });
+}
+function undoAdd(op) {
+  const i = S.queue.indexOf(op);
+  if (i > 0 || (i === 0 && !S.sending)) { S.queue.splice(i, 1); S.ver++; saveQueue(); rebuild(); render(); toast('Set deshecho'); }
+  else { enqueue({ type: 'del', row: op.row, sig: sig(op.m) }); toast('Set deshecho'); }
+}
+function deleteSet(row) {
+  const m = S.data.matches.find(x => x.row === row); if (!m) return;
+  if (!confirm(`¿Borrar este set?\n${m.a.join(' y ')} ${m.sa}–${m.sb} ${m.b.join(' y ')}`)) return;
+  const addOp = S.queue.find(o => o.type === 'add' && o.row === row);
+  if (addOp) undoAdd(addOp); else { enqueue({ type: 'del', row, sig: sig(m) }); toast('Set borrado'); }
 }
 
-let flushing = false;
-async function flush() {
-  if (flushing || !S.queue.length || isDemo()) return;
-  flushing = true;
-  try {
-    while (S.queue.length) { const r = await realApi.add(S.queue[0]); S.queue.shift(); saveQueue(); S.data = fin(r.data); cache(); }
-    toast('Sets pendientes enviados');
-  } catch (e) { if (!isNetErr(e)) toast(e.message, { err: true }); }
-  flushing = false; render();
+const fault = n => S.data.faults.find(f => f.name === n);
+function faultAdd(n) { enqueue({ type: 'fadd', fid: uid(), name: n, date: todayISO() }); }
+function faultRemove(n) {
+  const e = [...fault(n).entries].reverse().find(x => !x.paid);
+  if (!e) return toast('No tiene dobles faltas pendientes que quitar', { err: true });
+  enqueue({ type: 'fdel', fid: e.id });
 }
-
-async function mutate(fn, okMsg) {
-  try { const r = await fn(); S.data = fin(r.data); cache(); render(); if (okMsg) toast(okMsg); return true; }
-  catch (e) { toast(isNetErr(e) ? 'Necesitas conexión para esto' : e.message, { err: true }); return false; }
+function payNext(n) {
+  const e = fault(n).entries.find(x => !x.paid); if (!e) return;
+  enqueue({ type: 'fpay', fid: e.id, paid: todayISO() }); burst();
+  toast(`${n} ha pagado una cerveza`, { undo: () => enqueue({ type: 'fpay', fid: e.id, paid: '' }) });
+}
+function toggleFault(id) {
+  const e = S.data.faultLog.find(f => f.id === id); if (!e) return;
+  if (e.paid) { enqueue({ type: 'fpay', fid: id, paid: '' }); toast(`Cerveza de ${e.name} otra vez pendiente`, { undo: () => enqueue({ type: 'fpay', fid: id, paid: e.paid }) }); }
+  else { enqueue({ type: 'fpay', fid: id, paid: todayISO() }); burst(); toast(`${e.name} ha pagado una cerveza`, { undo: () => enqueue({ type: 'fpay', fid: id, paid: '' }) }); }
+}
+function deleteFault(id) {
+  const e = S.data.faultLog.find(f => f.id === id); if (!e) return;
+  if (confirm(`¿Borrar esta doble falta de ${e.name}?`)) enqueue({ type: 'fdel', fid: id });
 }
 
 document.addEventListener('click', ev => {
   const tab = ev.target.closest('[data-tab]');
-  if (tab) { S.tab = tab.dataset.tab; LS.set('padel.tab', S.tab); render(); scrollTo(0, 0); return; }
+  if (tab) { S.tab = tab.dataset.tab; LS.set('padel.tab', S.tab); render(); $('#view').scrollTo(0, 0); return; }
   const el = ev.target.closest('[data-act]'); if (!el) return;
   const a = el.dataset.act;
   if (a === 'pair') { S.draft.pairing = +el.dataset.i; render(); }
   else if (a === 'res') { S.draft.res = { win: el.dataset.win, lost: +el.dataset.lost }; render(); }
   else if (a === 'save') save();
   else if (a === 'undo') { const f = S.undo; $('#toast').hidden = true; f && f(); }
-  else if (a === 'refresh') { load(); flush(); }
-  else if (a === 'fault') {
-    const det = $('.log'), open = det && det.open;
-    mutate(() => api().fault(el.dataset.n, +el.dataset.d, todayISO())).then(() => { if (open) { const x = $('.log'); if (x) x.open = true; } });
-  }
-  else if (a === 'pay') {
-    const n = el.dataset.n;
-    mutate(() => api().pay(n, false, todayISO())).then(ok => { if (!ok) return; burst(); toast(`${n} ha pagado una cerveza`, { undo: () => mutate(() => api().pay(n, true, todayISO()), 'Pago deshecho') }); });
-  }
-  else if (a === 'del') {
-    const m = S.data.matches.find(x => String(x.row) === el.dataset.row); if (!m) return;
-    if (confirm(`¿Borrar este set?\n${m.a.join(' y ')} ${m.sa}–${m.sb} ${m.b.join(' y ')}`)) mutate(() => api().del(m.row, sig(m)), 'Set borrado');
-  }
+  else if (a === 'refresh') { load({ fresh: true }); toast('Actualizando…'); }
+  else if (a === 'fault') +el.dataset.d > 0 ? faultAdd(el.dataset.n) : faultRemove(el.dataset.n);
+  else if (a === 'pay') payNext(el.dataset.n);
+  else if (a === 'ftoggle') toggleFault(el.dataset.id);
+  else if (a === 'fdel') deleteFault(el.dataset.id);
+  else if (a === 'del') deleteSet(+el.dataset.row);
+  else if (a === 'filter') { S.filter = el.dataset.p; render(); }
   else if (a === 'preset') { S.rep = { preset: el.dataset.p, from: '', to: '' }; render(); }
   else if (a === 'print') { try { window.print(); } catch { toast('Usa Compartir → Imprimir de tu navegador', { err: true }); } }
   else if (a === 'settings') openSettings();
+  else if (a === 'connect') connect();
   else if (a === 'hard') hardRefresh();
   else if (a === 'install') installApp();
   else if (a === 'install-x') { LS.set('padel.noinst', 1); updateInstall(); }
-  else if (a === 'connect') connect();
-  else if (a === 'demo') { LS.del('padel.api'); LS.del('padel.cache'); S.data = null; $('#settings').close(); load(); }
+  else if (a === 'demo') { LS.del('padel.api'); LS.del('padel.base2'); S.base = null; S.queue = []; saveQueue(); rebuild(); $('#settings').close(); load(); }
 });
 document.addEventListener('change', ev => {
   const id = ev.target.id;
@@ -470,6 +581,7 @@ document.addEventListener('change', ev => {
     render();
   }
 });
+document.addEventListener('toggle', ev => { if (ev.target.classList && ev.target.classList.contains('log')) S.logOpen = ev.target.open; }, true);
 
 async function hardRefresh() {
   try { const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r => r.unregister())); } catch {}
@@ -482,7 +594,7 @@ function openSettings() {
   $('#apiurl').value = LS.get('padel.api', '') || CFG.API_URL || '';
   const cur = apiUrl(), src = LS.get('padel.api', '') ? 'guardada en este móvil' : 'de config.js';
   $('#setmsg').innerHTML = esc(({ demo: 'Estado: modo demo (sin URL).', checking: 'Estado: conectando…', ok: 'Estado: conectado con tu Excel.', error: 'Estado: error · ' + S.conn.msg }[S.conn.state])) +
-    (cur ? `<br>URL ${src}: …${esc(cur.slice(-22))}` : '') + `<br>Versión de la app: ${VERSION}`;
+    (cur ? `<br>URL ${src}: …${esc(cur.slice(-22))}` : '') + `<br>Versión de la app: ${VERSION}` + (S.queue.length ? `<br>Cambios por enviar: ${S.queue.length}` : '');
   $('#setmsg').className = 'hint' + (S.conn.state === 'error' ? ' err' : S.conn.state === 'ok' ? ' ok' : '');
   const link = $('#sheetlink'), url = LS.get('padel.sheet', '');
   link.hidden = !url; if (url) link.href = url;
@@ -495,9 +607,9 @@ async function connect() {
   const old = LS.get('padel.api', '');
   LS.set('padel.api', url);
   try {
-    const data = await realApi.get();
-    S.data = fin(data); cache(); if (data.sheetUrl) LS.set('padel.sheet', data.sheetUrl);
-    S.conn = { state: 'ok', msg: '' }; msg.textContent = '¡Conectado!'; msg.className = 'hint ok'; render();
+    const data = await realApi.get(true);
+    S.base = data; saveBase(); if (data.sheetUrl) LS.set('padel.sheet', data.sheetUrl);
+    S.conn = { state: 'ok', msg: '' }; rebuild(); msg.textContent = '¡Conectado!'; msg.className = 'hint ok'; render();
     setTimeout(() => $('#settings').close(), 700);
   } catch (e) {
     old ? LS.set('padel.api', old) : LS.del('padel.api');
@@ -526,8 +638,9 @@ $('.icon-btn[data-act=settings]').innerHTML = `<svg viewBox="0 0 24 24" width="2
 const tabIcons = { apuntar: 'plus', tabla: 'trophy', historial: 'list', informe: 'doc' };
 document.querySelectorAll('.tabs button').forEach(b => { $('i', b).innerHTML = ICON[tabIcons[b.dataset.tab]]; });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.addEventListener('online', () => { flush(); load(true); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && S.data) load(true); });
+window.addEventListener('online', () => { S.offline = false; pump(); load(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { pump(); if (Date.now() - S.lastLoad > 20000) load(); } });
+setInterval(() => { if (!document.hidden && !S.queue.length && Date.now() - S.lastLoad > 60000) load(); }, 30000);
 updateInstall();
-render(); load().then(flush);
+render(); load().then(() => pump());
 })();
