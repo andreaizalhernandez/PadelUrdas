@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Padelurdas</title>
+<meta name="theme-color" content="#0b1f1a">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Padelurdas">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700..800&family=Plus+Jakarta+Sans:wght@500..800&display=swap">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="ball"></span><span>PADELURDAS</span></div>
+  <div class="top-actions">
+    <span id="sync" class="pill" hidden></span>
+    <button class="icon-btn" data-act="refresh" aria-label="Actualizar"></button>
+    <button class="icon-btn" data-act="settings" aria-label="Ajustes"></button>
+  </div>
+</header>
+<div id="banner" class="banner" hidden></div>
+<main id="view"></main>
+<nav class="tabs">
+  <button data-tab="apuntar"><i></i><span>Apuntar</span></button>
+  <button data-tab="tabla"><i></i><span>Clasificación</span></button>
+  <button data-tab="historial"><i></i><span>Sets</span></button>
+  <button data-tab="informe"><i></i><span>Informe</span></button>
+</nav>
+<div id="toast" class="toast" hidden></div>
+
+<dialog id="settings">
+  <form method="dialog" class="dlg">
+    <h2>Ajustes</h2>
+    <label for="apiurl">URL de tu Apps Script</label>
+    <input id="apiurl" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <p id="setmsg" class="hint"></p>
+    <div class="dlg-row">
+      <button type="button" class="btn lime" data-act="connect">Conectar con mi Excel</button>
+    </div>
+    <div class="dlg-row">
+      <button type="button" class="btn ghost" data-act="demo">Usar modo demo</button>
+      <a id="sheetlink" class="btn ghost" target="_blank" rel="noopener" hidden>Abrir el Excel</a>
+    </div>
+    <button class="btn plain" value="close">Cerrar</button>
+  </form>
+</dialog>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+PADELURDAS · cómo ponerla en marcha (10 minutos)
+
+A) CONECTAR CON TU EXCEL
+1. Abre tu hoja en Google Sheets (sube el .xlsx a Drive y ábrelo con Hojas de cálculo si aún no lo es).
+2. Extensiones > Apps Script. Borra lo que haya y pega todo el contenido de apps-script/Codigo.gs. Guarda.
+3. Implementar > Nueva implementación > tipo «Aplicación web».
+   - Ejecutar como: Yo
+   - Quién tiene acceso: Cualquier persona
+   Autoriza los permisos y copia la URL que termina en /exec.
+
+B) PUBLICAR LA APP (gratis)
+1. Entra en app.netlify.com/drop y arrastra la carpeta «padelurdas» (sin apps-script si quieres).
+2. Te da una dirección web. Ábrela en el móvil.
+3. Pulsa ⚙︎ > pega la URL de /exec > «Conectar con mi Excel».
+   (O pégala en config.js antes de subir la carpeta y así no hay que pegarla en cada móvil.)
+
+C) INSTALARLA EN EL MÓVIL
+- iPhone: Safari > Compartir > «Añadir a pantalla de inicio».
+- Android: Chrome > menú ⋮ > «Instalar aplicación».
