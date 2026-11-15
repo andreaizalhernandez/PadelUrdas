@@ -380,3 +380,10 @@ div.shame{padding:14px 16px;border-radius:18px;background:var(--beer-bg);border:
   .page{max-width:760px}
   h1{font-size:40px}
 }
+
+.rep-link{display:flex;align-items:center;gap:12px;width:100%;text-align:left;margin-top:12px;padding:13px 16px;border-radius:18px;background:var(--card);border:1px solid var(--line);color:var(--lt)}
+.rep-link span{display:flex;flex-direction:column;color:var(--txt);font-size:14px}
+.rep-link small{color:var(--mut);font-size:12px;font-weight:600;margin-top:1px}
+.rep-link.shame-link{color:var(--beer-t);background:var(--beer-bg);border-color:transparent}
+.rep-link:active{transform:scale(.99)}
+.back{margin-top:12px;padding:8px 12px 8px 6px;font-weight:800;font-size:14px;color:var(--lt)}

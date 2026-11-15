@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const CFG = window.PADELURDAS_CONFIG || {};
-const VERSION = '15-nov-g';
+const VERSION = '15-nov-h';
 
 /* ---------- utilidades ---------- */
 const LS = {
@@ -24,6 +24,7 @@ const sig = m => [...m.a, ...m.b, m.sa, m.sb].join('|');
 const I = (p, w = 22) => `<svg viewBox="0 0 24 24" width="${w}" height="${w}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 const MUG = '<path d="M5 8h10v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8Z" fill="currentColor" fill-opacity=".9"/><path d="M15 10h2a2 2 0 0 1 0 6h-2M8 4c0 1 1 1 1 2M12 4c0 1 1 1 1 2"/>';
 const ICON = {
+  mug: I(MUG, 22),
   plus: I('<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>'),
   trophy: I('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>'),
   list: I('<rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/>'),
@@ -156,7 +157,7 @@ const SHAME = [
 function shameHtml(d) {
   const L = d.faults.slice().sort((a, b) => b.count - a.count);
   const max = L[0] ? L[0].count : 0;
-  const head = '<h3>El Salón de la Vergüenza</h3>';
+  const head = '';
   if (!max) return head + '<div class="shame"><p class="sub" style="margin:0">🎾 Nadie ha fallado el saque todavía… ¡sospechoso! Se rumorea que alguien está sacando con la mano.</p></div>';
   let pos = 0;
   const rows = L.map((f, i) => {
@@ -312,13 +313,25 @@ function viewTabla() {
       <div class="pr">${avs(p.pair)}<div class="pn">${esc(p.pair.join(' + '))}<small>${p.played} set${p.played > 1 ? 's' : ''} · ${p.wins} G · ${p.played - p.wins} P · juegos ${p.gf}–${p.ga}</small></div>
         <b>${Math.round(p.wins / p.played * 100)}%</b><div class="bar"><i style="width:${Math.round(p.wins / p.played * 100)}%"></i></div></div>`).join('')}</div>` : ''}
 
-    <h3>Cervezas por dobles faltas</h3>
-    <div class="beer-sum">
+    <button class="rep-link" data-tab="informe">${ICON.doc}<span><b>Informe en PDF</b><small>Sets y estadísticas de un periodo, listo para imprimir</small></span></button>
+    <button class="rep-link shame-link" data-tab="verguenza">${I(MUG, 22)}<span><b>Salón de la Vergüenza</b><small>${d.faults.reduce((a, f) => a + f.pending, 0)} cervezas por pagar</small></span></button>`;
+}
+
+function viewVerguenza() {
+  const d = S.data; if (!d) return skeleton();
+  const log = [...d.faultLog].reverse();
+  const pend = d.faults.reduce((a, f) => a + f.pending, 0), paid = d.faults.reduce((a, f) => a + f.paid, 0);
+  return `
+    <h1>Salón de la Vergüenza</h1>
+    <p class="sub">Quien falla el saque, paga la ronda. 🍺</p>
+    <div class="beer-sum" style="margin-top:14px">
       <div><b>${pend}</b><span>por pagar</span></div>
       <div><b>${paid}</b><span>pagadas</span></div>
       <div><b>${pend + paid}</b><span>dobles faltas</span></div>
     </div>
+    <h3>Ranking del vacile</h3>
     ${shameHtml(d)}
+    <h3>Apuntar y pagar</h3>
     <p class="sub tip">Toca una jarra para marcarla como pagada o volver a dejarla pendiente.</p>
     <div class="faults">${d.faults.map(f => `
       <div class="fault">
@@ -388,6 +401,7 @@ function viewInforme() {
   const pairs = pairStats(ms);
   let lastDay = null;
   return `
+    <button class="back no-print" data-tab="tabla">‹ Clasificación</button>
     <h1>Informe</h1>
     <p class="sub">Elige el periodo y guarda el informe en PDF.</p>
     <div class="no-print">
@@ -436,8 +450,8 @@ function viewInforme() {
 /* ---------- render ---------- */
 function render() {
   const v = $('#view');
-  v.innerHTML = '<div class="page">' + ({ apuntar: viewApuntar, tabla: viewTabla, historial: viewHistorial, informe: viewInforme }[S.tab]()) + '</div>';
-  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
+  v.innerHTML = '<div class="page">' + ({ apuntar: viewApuntar, tabla: viewTabla, historial: viewHistorial, informe: viewInforme, verguenza: viewVerguenza }[S.tab]()) + '</div>';
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab || (S.tab === 'informe' && b.dataset.tab === 'tabla')));
   const pill = $('#sync'), q = S.queue.length;
   pill.hidden = !q;
   pill.className = 'pill' + (S.offline ? ' warn' : '');
@@ -678,7 +692,7 @@ async function installApp() {
 $('[data-act=refresh]').innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>`;
 applyTheme();
 $('.icon-btn[data-act=settings]').innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>`;
-const tabIcons = { apuntar: 'plus', tabla: 'trophy', historial: 'list', informe: 'doc' };
+const tabIcons = { apuntar: 'plus', tabla: 'trophy', historial: 'list', informe: 'doc', verguenza: 'mug' };
 document.querySelectorAll('.tabs button').forEach(b => { $('i', b).innerHTML = ICON[tabIcons[b.dataset.tab]]; });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.addEventListener('online', () => { S.offline = false; pump(); load(); });
