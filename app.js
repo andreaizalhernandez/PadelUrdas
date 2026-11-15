@@ -1,7 +1,16 @@
 (() => {
 'use strict';
 const CFG = window.PADELURDAS_CONFIG || {};
-const VERSION = '15-nov-h';
+const VERSION = '15-nov-i';
+
+/* altura real de la pantalla (iOS/Android): evita huecos bajo la barra */
+function fitApp() {
+  const h = Math.round(window.innerHeight);
+  document.documentElement.style.setProperty('--app-h', h + 'px');
+}
+fitApp();
+['resize', 'orientationchange', 'pageshow', 'focus'].forEach(e => window.addEventListener(e, () => { fitApp(); setTimeout(fitApp, 250); }));
+window.visualViewport && window.visualViewport.addEventListener('resize', fitApp);
 
 /* ---------- utilidades ---------- */
 const LS = {
