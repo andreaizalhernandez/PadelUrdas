@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const CFG = window.PADELURDAS_CONFIG || {};
-const VERSION = '15-nov-b';
+const VERSION = '15-nov-c';
 
 /* ---------- utilidades ---------- */
 const LS = {
@@ -456,6 +456,8 @@ document.addEventListener('click', ev => {
   else if (a === 'print') { try { window.print(); } catch { toast('Usa Compartir → Imprimir de tu navegador', { err: true }); } }
   else if (a === 'settings') openSettings();
   else if (a === 'hard') hardRefresh();
+  else if (a === 'install') installApp();
+  else if (a === 'install-x') { LS.set('padel.noinst', 1); updateInstall(); }
   else if (a === 'connect') connect();
   else if (a === 'demo') { LS.del('padel.api'); LS.del('padel.cache'); S.data = null; $('#settings').close(); load(); }
 });
@@ -503,6 +505,21 @@ async function connect() {
   }
 }
 
+/* ---------- instalar la app ---------- */
+let deferred = null;
+const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function updateInstall() { $('#install').hidden = standalone() || !!LS.get('padel.noinst', 0); }
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; });
+window.addEventListener('appinstalled', () => { deferred = null; LS.set('padel.noinst', 1); updateInstall(); toast('App instalada'); });
+async function installApp() {
+  if (deferred) { deferred.prompt(); try { await deferred.userChoice; } catch {} deferred = null; return; }
+  $('#howto-body').innerHTML = isIOS()
+    ? `<ol><li>Abre esta página en <b>Safari</b> (no en otro navegador).</li><li>Toca el botón <b>Compartir</b> (el cuadrado con la flecha hacia arriba).</li><li>Elige <b>«Añadir a pantalla de inicio»</b>.</li><li>Toca <b>Añadir</b>. Ya tienes el icono de la pelota.</li></ol>`
+    : `<ol><li>Abre esta página en <b>Chrome</b>.</li><li>Toca el menú <b>⋮</b> (arriba a la derecha).</li><li>Elige <b>«Instalar aplicación»</b> o <b>«Añadir a pantalla de inicio»</b>.</li><li>Confirma. Ya tienes el icono de la pelota.</li></ol>`;
+  $('#howto').showModal();
+}
+
 /* ---------- arranque ---------- */
 $('[data-act=refresh]').innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>`;
 $('.icon-btn[data-act=settings]').innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>`;
@@ -511,5 +528,6 @@ document.querySelectorAll('.tabs button').forEach(b => { $('i', b).innerHTML = I
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.addEventListener('online', () => { flush(); load(true); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && S.data) load(true); });
+updateInstall();
 render(); load().then(flush);
 })();

@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700..800&family=Plus+Jakarta+Sans:wght@500..800&display=swap">
-<link rel="stylesheet" href="app.css?v=b">
+<link rel="stylesheet" href="app.css?v=c">
 </head>
 <body>
 <header class="top">
@@ -29,6 +29,12 @@
   </div>
 </header>
 <div id="banner" class="banner" hidden></div>
+<div id="install" class="install" hidden>
+  <span class="ball"></span>
+  <div><b>Instala Padelurdas</b><small>Ábrela como una app, a pantalla completa</small></div>
+  <button class="inst-btn" data-act="install">Instalar</button>
+  <button class="inst-x" data-act="install-x" aria-label="Ocultar">×</button>
+</div>
 <main id="view"></main>
 <nav class="tabs">
   <button data-tab="apuntar"><i></i><span>Apuntar</span></button>
@@ -37,6 +43,14 @@
   <button data-tab="informe"><i></i><span>Informe</span></button>
 </nav>
 <div id="toast" class="toast" hidden></div>
+
+<dialog id="howto">
+  <form method="dialog" class="dlg">
+    <h2>Instalar la app</h2>
+    <div id="howto-body" class="how"></div>
+    <button class="btn lime" value="close">Entendido</button>
+  </form>
+</dialog>
 
 <dialog id="settings">
   <form method="dialog" class="dlg">
@@ -56,7 +70,7 @@
   </form>
 </dialog>
 
-<script src="config.js?v=b"></script>
-<script src="app.js?v=b"></script>
+<script src="config.js?v=c"></script>
+<script src="app.js?v=c"></script>
 </body>
 </html>
