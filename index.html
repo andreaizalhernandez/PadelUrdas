@@ -16,13 +16,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700..800&family=Plus+Jakarta+Sans:wght@500..800&display=swap">
-<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css?v=b">
 </head>
 <body>
 <header class="top">
   <div class="brand"><span class="ball"></span><span>PADELURDAS</span></div>
   <div class="top-actions">
     <span id="sync" class="pill" hidden></span>
+    <button id="conn" class="conn checking" data-act="settings" aria-label="Estado de la conexión"><i></i><span>Conectando…</span></button>
     <button class="icon-btn" data-act="refresh" aria-label="Actualizar"></button>
     <button class="icon-btn" data-act="settings" aria-label="Ajustes"></button>
   </div>
@@ -47,6 +48,7 @@
       <button type="button" class="btn lime" data-act="connect">Conectar con mi Excel</button>
     </div>
     <div class="dlg-row">
+      <button type="button" class="btn ghost" data-act="hard">Forzar actualización</button>
       <button type="button" class="btn ghost" data-act="demo">Usar modo demo</button>
       <a id="sheetlink" class="btn ghost" target="_blank" rel="noopener" hidden>Abrir el Excel</a>
     </div>
@@ -54,7 +56,7 @@
   </form>
 </dialog>
 
-<script src="config.js"></script>
-<script src="app.js"></script>
+<script src="config.js?v=b"></script>
+<script src="app.js?v=b"></script>
 </body>
 </html>

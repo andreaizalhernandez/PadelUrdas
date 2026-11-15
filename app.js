@@ -1,6 +1,7 @@
 (() => {
 'use strict';
 const CFG = window.PADELURDAS_CONFIG || {};
+const VERSION = '15-nov-b';
 
 /* ---------- utilidades ---------- */
 const LS = {
@@ -136,7 +137,8 @@ const S = {
   loading: false, saving: false,
   draft: { date: todayISO(), pairing: null, res: null },   // res: {win:'A'|'B', lost:0..5}
   rep: { preset: 'all', from: '', to: '' },
-  queue: LS.get('padel.queue', [])
+  queue: LS.get('padel.queue', []),
+  conn: { state: 'checking', msg: '' }
 };
 if (S.data) fin(S.data);
 const saveQueue = () => LS.set('padel.queue', S.queue);
@@ -347,9 +349,15 @@ function render() {
   pill.hidden = !(q || S.loading);
   pill.className = 'pill' + (q ? ' warn' : '');
   pill.textContent = q ? `${q} pendiente${q > 1 ? 's' : ''}` : 'Sincronizando…';
+  const c = $('#conn'), cs = S.conn.state;
+  c.className = 'conn ' + cs;
+  c.querySelector('span').textContent = { demo: 'Demo', checking: 'Conectando…', ok: 'Excel conectado', error: 'Sin conexión' }[cs];
   const b = $('#banner');
-  b.hidden = !isDemo();
-  b.textContent = isDemo() ? 'Modo demo: datos de prueba. Conecta tu Excel desde Ajustes para usar los reales.' : '';
+  b.hidden = cs === 'ok' || cs === 'checking';
+  b.className = 'banner' + (cs === 'error' ? ' bad' : '');
+  b.textContent = cs === 'demo'
+    ? (CFG.API_URL ? 'Modo demo aunque hay URL en config.js: abre Ajustes y pulsa «Forzar actualización».' : 'Modo demo: datos de prueba. Conecta tu Excel desde Ajustes.')
+    : cs === 'error' ? 'No se pudo leer el Excel: ' + S.conn.msg : '';
 }
 
 function burst() {
@@ -374,13 +382,16 @@ function toast(msg, opts = {}) {
 
 /* ---------- acciones ---------- */
 async function load(quiet) {
-  S.loading = !quiet; render();
+  S.loading = !quiet;
+  S.conn = isDemo() ? { state: 'demo', msg: '' } : { state: S.conn.state === 'ok' ? 'ok' : 'checking', msg: '' };
+  render();
   try {
     S.data = fin(await api().get()); cache();
     if (S.data.sheetUrl) LS.set('padel.sheet', S.data.sheetUrl);
+    if (!isDemo()) S.conn = { state: 'ok', msg: '' };
   } catch (e) {
-    if (!isNetErr(e)) toast(e.message, { err: true });
-    else if (!S.data) toast('Sin conexión y sin datos guardados', { err: true });
+    S.conn = { state: 'error', msg: isNetErr(e) ? 'no se llega al script (revisa la URL y que el acceso sea «Cualquier persona»)' : e.message };
+    if (!S.data) toast(S.conn.msg, { err: true });
   }
   S.loading = false; render();
 }
@@ -444,6 +455,7 @@ document.addEventListener('click', ev => {
   else if (a === 'preset') { S.rep = { preset: el.dataset.p, from: '', to: '' }; render(); }
   else if (a === 'print') { try { window.print(); } catch { toast('Usa Compartir → Imprimir de tu navegador', { err: true }); } }
   else if (a === 'settings') openSettings();
+  else if (a === 'hard') hardRefresh();
   else if (a === 'connect') connect();
   else if (a === 'demo') { LS.del('padel.api'); LS.del('padel.cache'); S.data = null; $('#settings').close(); load(); }
 });
@@ -457,11 +469,19 @@ document.addEventListener('change', ev => {
   }
 });
 
+async function hardRefresh() {
+  try { const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r => r.unregister())); } catch {}
+  try { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } catch {}
+  location.reload();
+}
+
 function openSettings() {
   const dlg = $('#settings');
   $('#apiurl').value = LS.get('padel.api', '') || CFG.API_URL || '';
-  $('#setmsg').textContent = isDemo() ? 'Ahora mismo estás en modo demo.' : 'Conectada con tu Excel.';
-  $('#setmsg').className = 'hint';
+  const cur = apiUrl(), src = LS.get('padel.api', '') ? 'guardada en este móvil' : 'de config.js';
+  $('#setmsg').innerHTML = esc(({ demo: 'Estado: modo demo (sin URL).', checking: 'Estado: conectando…', ok: 'Estado: conectado con tu Excel.', error: 'Estado: error · ' + S.conn.msg }[S.conn.state])) +
+    (cur ? `<br>URL ${src}: …${esc(cur.slice(-22))}` : '') + `<br>Versión de la app: ${VERSION}`;
+  $('#setmsg').className = 'hint' + (S.conn.state === 'error' ? ' err' : S.conn.state === 'ok' ? ' ok' : '');
   const link = $('#sheetlink'), url = LS.get('padel.sheet', '');
   link.hidden = !url; if (url) link.href = url;
   dlg.showModal();
@@ -475,7 +495,7 @@ async function connect() {
   try {
     const data = await realApi.get();
     S.data = fin(data); cache(); if (data.sheetUrl) LS.set('padel.sheet', data.sheetUrl);
-    msg.textContent = '¡Conectado!'; msg.className = 'hint ok'; render();
+    S.conn = { state: 'ok', msg: '' }; msg.textContent = '¡Conectado!'; msg.className = 'hint ok'; render();
     setTimeout(() => $('#settings').close(), 700);
   } catch (e) {
     old ? LS.set('padel.api', old) : LS.del('padel.api');
@@ -485,7 +505,7 @@ async function connect() {
 
 /* ---------- arranque ---------- */
 $('[data-act=refresh]').innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>`;
-$('[data-act=settings]').innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>`;
+$('.icon-btn[data-act=settings]').innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>`;
 const tabIcons = { apuntar: 'plus', tabla: 'trophy', historial: 'list', informe: 'doc' };
 document.querySelectorAll('.tabs button').forEach(b => { $('i', b).innerHTML = ICON[tabIcons[b.dataset.tab]]; });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
