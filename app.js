@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const CFG = window.PADELURDAS_CONFIG || {};
-const VERSION = '15-nov-f';
+const VERSION = '15-nov-g';
 
 /* ---------- utilidades ---------- */
 const LS = {
@@ -623,7 +623,7 @@ const resolvedTheme = () => { const t = themePref(); return t === 'auto' ? (matc
 function applyTheme() {
   const t = themePref(), r = resolvedTheme();
   if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
-  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = r === 'dark' ? '#07140f' : '#f3faea';
+  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = r === 'dark' ? '#07140f' : '#15492c';
   const b = $('#themebtn'); if (b) b.innerHTML = r === 'dark' ? SUN : MOON;
   document.querySelectorAll('#seg button').forEach(x => x.classList.toggle('on', x.dataset.t === t));
 }
