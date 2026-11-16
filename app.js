@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const CFG = window.PADELURDAS_CONFIG || {};
-const VERSION = '15-nov-m';
+const VERSION = '15-nov-n';
 
 /* altura real de la pantalla (iOS/Android): evita huecos bajo la barra */
 function fitApp() {
