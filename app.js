@@ -1,17 +1,11 @@
 (() => {
 'use strict';
 const CFG = window.PADELURDAS_CONFIG || {};
-const VERSION = '15-nov-k';
+const VERSION = '15-nov-m';
 
 /* altura real de la pantalla (iOS/Android): evita huecos bajo la barra */
 function fitApp() {
   let h = Math.round(window.innerHeight);
-  /* iPhone instalada: iOS a veces da una altura más corta que la pantalla (deja un hueco abajo) */
-  const standalone = navigator.standalone || (matchMedia && matchMedia('(display-mode: standalone)').matches);
-  if (standalone && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
-    const sh = window.innerWidth <= window.innerHeight ? screen.height : screen.width;
-    if (sh > h && sh - h <= 130) h = sh;
-  }
   document.documentElement.style.setProperty('--app-h', h + 'px');
 }
 fitApp();
@@ -99,6 +93,84 @@ function evolution(d) {
     d.players.forEach(p => cum[p].push(cur[p]));
   });
   return { days, cum };
+}
+
+
+/* ---------- medallas, rachas y cara a cara ---------- */
+function streaks(d) {
+  const out = Object.fromEntries(d.players.map(p => [p, { cur: 0, best: 0, curL: 0, worst: 0, tb: 0, rosc: 0 }]));
+  for (const m of d.matches.filter(okMatch).sort(byDate)) {
+    const aw = m.sa > m.sb;
+    [[m.a, aw, m.sa, m.sb], [m.b, !aw, m.sb, m.sa]].forEach(([t, won, f, c]) => t.forEach(p => {
+      const r = out[p]; if (!r) return;
+      if (won) { r.cur++; r.curL = 0; r.best = Math.max(r.best, r.cur); if (c === 0) r.rosc++; }
+      else { r.curL++; r.cur = 0; r.worst = Math.max(r.worst, r.curL); }
+      if (f === 5 || c === 5) r.tb++;
+    }));
+  }
+  return out;
+}
+function awards(d) {
+  const s = streaks(d), A = [], pick = (k, min = 2) => Object.entries(s).map(([n, r]) => ({ n, v: r[k] })).filter(x => x.v >= min).sort((a, b) => b.v - a.v)[0];
+  const hot = pick('cur'), best = pick('best'), cold = pick('worst'), tb = pick('tb', 1), rosc = pick('rosc', 1);
+  const unb = pairStats(d.matches).filter(p => p.played >= 2 && p.wins === p.played)[0];
+  if (hot) A.push({ ico: '🔥', t: 'En racha', n: [hot.n], v: `${hot.v} sets ganados seguidos` });
+  if (best) A.push({ ico: '🏅', t: 'Mejor racha', n: [best.n], v: `${best.v} victorias seguidas` });
+  if (cold) A.push({ ico: '🧊', t: 'Nevera', n: [cold.n], v: `${cold.v} derrotas seguidas` });
+  if (unb) A.push({ ico: '🤝', t: 'Pareja imbatible', n: unb.pair, v: `${unb.wins} sets, 0 derrotas` });
+  if (tb) A.push({ ico: '😰', t: 'Reina del tie-break', n: [tb.n], v: `${tb.v} set${tb.v > 1 ? 's' : ''} al límite (6-5)` });
+  if (rosc) A.push({ ico: '🥯', t: 'Rosquillas', n: [rosc.n], v: `${rosc.v} set${rosc.v > 1 ? 's' : ''} ganados 6-0` });
+  return A;
+}
+function h2h(d, a, b) {
+  const r = { vs: { a: 0, b: 0, ga: 0, gb: 0, n: 0 }, tog: { w: 0, l: 0, n: 0 }, last: [] };
+  for (const m of d.matches.filter(okMatch).sort(byDate)) {
+    const ina = m.a.includes(a) ? 'a' : m.b.includes(a) ? 'b' : null, inb = m.a.includes(b) ? 'a' : m.b.includes(b) ? 'b' : null;
+    if (!ina || !inb) continue;
+    const win = { a: m.sa > m.sb, b: m.sb > m.sa };
+    if (ina === inb) { r.tog.n++; win[ina] ? r.tog.w++ : r.tog.l++; }
+    else {
+      r.vs.n++; r.vs.ga += ina === 'a' ? m.sa : m.sb; r.vs.gb += ina === 'a' ? m.sb : m.sa;
+      win[ina] ? r.vs.a++ : r.vs.b++;
+      r.last.push({ date: m.date, sa: ina === 'a' ? m.sa : m.sb, sb: ina === 'a' ? m.sb : m.sa, won: win[ina] });
+    }
+  }
+  r.last = r.last.slice(-5).reverse();
+  return r;
+}
+function h2hHtml(d) {
+  const [a, b] = S.h2h && S.h2h.a !== S.h2h.b ? [S.h2h.a, S.h2h.b] : [d.players[0], d.players[1]];
+  if (!d.players[1]) return '';
+  S.h2h = { a, b };
+  const r = h2h(d, a, b), row = key => `<div class="h2h-pick">${d.players.map(n => `<button class="chip ${S.h2h[key] === n ? 'on' : ''}" data-act="h2h" data-k="${key}" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
+  const tot = r.vs.a + r.vs.b, pa = tot ? Math.round(r.vs.a / tot * 100) : 50;
+  return `<h3>Cara a cara</h3><div class="h2h">
+    ${row('a')}<div class="h2h-vs">VS</div>${row('b')}
+    <div class="h2h-score">${av(a)}<b>${r.vs.a}</b><span>–</span><b>${r.vs.b}</b>${av(b)}</div>
+    <div class="h2h-bar"><i style="width:${pa}%;background:var(--c${idx(a)})"></i><i style="width:${100 - pa}%;background:var(--c${idx(b)})"></i></div>
+    <p class="sub" style="text-align:center;margin:8px 0 0">${r.vs.n ? `${r.vs.n} set${r.vs.n > 1 ? 's' : ''} enfrentadas · juegos ${r.vs.ga}–${r.vs.gb}` : 'Todavía no se han enfrentado'}</p>
+    <p class="sub" style="text-align:center;margin:2px 0 0">${r.tog.n ? `Juntas: ${r.tog.w} ganados · ${r.tog.l} perdidos` : 'Todavía no han jugado juntas'}</p>
+    ${r.last.length ? `<div class="h2h-last">${r.last.map(x => `<span class="${x.won ? 'w' : 'l'}" title="${esc(x.date || '')}">${x.sa}-${x.sb}</span>`).join('')}<small>últimos duelos (de ${esc(a)})</small></div>` : ''}
+  </div>`;
+}
+function awardsHtml(d) {
+  const A = awards(d); if (!A.length) return '';
+  return `<h3>Medallas</h3><div class="medals">${A.map((x, i) => `<div class="medal" style="--i:${i}"><span class="m-ico">${x.ico}</span><div><small>${x.t}</small><b>${x.n.map(esc).join(' + ')}</b><span>${x.v}</span></div></div>`).join('')}</div>`;
+}
+
+/* ---------- recordatorio de cervezas ---------- */
+function debtText(d, only) {
+  const L = d.faults.filter(f => f.pending > 0 && (!only || f.name === only));
+  if (!L.length) return '';
+  if (only) { const f = L[0]; return `🍺 ${f.name}, te toca pagar ${f.pending} cerveza${f.pending > 1 ? 's' : ''} por dobles faltas. ¡Que no se enfríen! 🎾`; }
+  return '🍺 Cervezas pendientes en Padelurdas:\n' + L.map(f => `• ${f.name}: ${f.pending}`).join('\n') + '\n¡A pagar la ronda! 🎾';
+}
+const waLink = t => 'https://wa.me/?text=' + encodeURIComponent(t);
+function debtCard(d) {
+  const L = d.faults.filter(f => f.pending > 0).sort((a, b) => b.pending - a.pending);
+  if (!L.length || LS.get('padel.debtx', '') === todayISO()) return '';
+  return `<div class="debt"><span class="d-ico">🍺</span><div><b>Cervezas pendientes</b><span>${L.map(f => `${esc(f.name)} ${f.pending}`).join(' · ')}</span></div>
+    <a class="btn lime sm" target="_blank" rel="noopener" href="${waLink(debtText(d))}">Recordar</a><button class="d-x" data-act="debt-x" aria-label="Ocultar">×</button></div>`;
 }
 
 /* ---------- operaciones (se aplican al instante en el móvil y luego se envían) ---------- */
@@ -236,6 +308,7 @@ function currentMatch() {
 function viewApuntar() {
   const d = S.data, dr = S.draft;
   if (!d) return skeleton();
+  const debt = debtCard(d);
   const P = pairings(d.players);
   const [A, B] = dr.pairing === null ? [[], []] : P[dr.pairing];
   const m = currentMatch(), { win, tb } = d.pts;
@@ -250,6 +323,7 @@ function viewApuntar() {
   return `
     <h1>Nuevo set</h1>
     <p class="sub">Tres toques y listo.</p>
+    ${debt}
     <label class="date"><span>${ICON.cal} Fecha</span><input type="date" id="date" value="${esc(dr.date)}"></label>
 
     <h3>Parejas</h3>
@@ -328,6 +402,9 @@ function viewTabla() {
       <div class="pr">${avs(p.pair)}<div class="pn">${esc(p.pair.join(' + '))}<small>${p.played} set${p.played > 1 ? 's' : ''} · ${p.wins} G · ${p.played - p.wins} P · juegos ${p.gf}–${p.ga}</small></div>
         <b>${Math.round(p.wins / p.played * 100)}%</b><div class="bar"><i style="width:${Math.round(p.wins / p.played * 100)}%"></i></div></div>`).join('')}</div>` : ''}
 
+    ${awardsHtml(d)}
+    ${h2hHtml(d)}
+
     <button class="rep-link" data-tab="informe">${ICON.doc}<span><b>Informe en PDF</b><small>Sets y estadísticas de un periodo, listo para imprimir</small></span></button>
     <button class="rep-link shame-link" data-tab="verguenza">${I(MUG, 22)}<span><b>Salón de la Vergüenza</b><small>${d.faults.reduce((a, f) => a + f.pending, 0)} cervezas por pagar</small></span></button>`;
 }
@@ -344,6 +421,7 @@ function viewVerguenza() {
       <div><b>${paid}</b><span>pagadas</span></div>
       <div><b>${pend + paid}</b><span>dobles faltas</span></div>
     </div>
+    ${pend ? `<a class="btn lime remind" target="_blank" rel="noopener" href="${waLink(debtText(d))}">📲 Recordar a todas por WhatsApp</a>` : ''}
     <h3>Ranking del vacile</h3>
     ${shameHtml(d)}
     <h3>Apuntar y pagar</h3>
@@ -402,6 +480,21 @@ function repRange() {
 }
 const inRange = (date, { from, to }) => date ? (!from || date >= from) && (!to || date <= to) : !from && !to;
 
+
+function coverHtml(d, st, flog, ms) {
+  if (!ms.length) return '';
+  const champ = st[0], fl = d.players.map(n => ({ n, c: flog.filter(f => f.name === n).length })).sort((a, b) => b.c - a.c)[0];
+  const sets = st.slice().sort((a, b) => b.played - a.played)[0];
+  const S2 = streaks({ players: d.players, matches: ms });
+  const bs = Object.entries(S2).sort((a, b) => b[1].best - a[1].best)[0];
+  const cells = [
+    champ && champ.points > 0 ? ['🏆', 'Campeona del periodo', champ.name, `${champ.points} puntos · ${champ.wins} sets ganados`] : null,
+    fl && fl.c > 0 ? ['🍺', 'Reina de las dobles faltas', fl.n, `${fl.c} cerveza${fl.c > 1 ? 's' : ''} en juego`] : null,
+    bs && bs[1].best >= 2 ? ['🔥', 'Mejor racha', bs[0], `${bs[1].best} victorias seguidas`] : null,
+    sets && sets.played ? ['🎾', 'Más sets jugados', sets.name, `${sets.played} sets`] : null
+  ].filter(Boolean);
+  return `<div class="cover">${cells.map(c => `<div><span>${c[0]}</span><small>${c[1]}</small><b>${esc(c[2])}</b><em>${c[3]}</em></div>`).join('')}</div>`;
+}
 function viewInforme() {
   const d = S.data; if (!d) return skeleton();
   const rg = repRange(), r = S.rep;
@@ -433,6 +526,8 @@ function viewInforme() {
         <div><span class="p-brand">PADELURDAS</span><h2>Informe del periodo</h2></div>
         <div class="p-per"><b>${from ? esc(fmtMed(from)) : '–'}</b> a <b>${esc(fmtMed(to))}</b><span>${ms.length} sets · ${days} día${days === 1 ? '' : 's'} de juego</span></div>
       </header>
+
+      ${coverHtml(d, st, flog, ms)}
 
       <h4>Clasificación del periodo</h4>
       <div class="tw"><table>
@@ -616,6 +711,8 @@ document.addEventListener('click', ev => {
   else if (a === 'ftoggle') toggleFault(el.dataset.id);
   else if (a === 'fdel') deleteFault(el.dataset.id);
   else if (a === 'del') deleteSet(+el.dataset.row);
+  else if (a === 'h2h') { S.h2h = { ...S.h2h, [el.dataset.k]: el.dataset.n }; render(); }
+  else if (a === 'debt-x') { LS.set('padel.debtx', todayISO()); render(); }
   else if (a === 'filter') { S.filter = el.dataset.p; render(); }
   else if (a === 'preset') { S.rep = { preset: el.dataset.p, from: '', to: '' }; render(); }
   else if (a === 'print') { try { window.print(); } catch { toast('Usa Compartir → Imprimir de tu navegador', { err: true }); } }
@@ -659,13 +756,18 @@ function applyTheme() {
 function setTheme(t) { LS.set('padel.theme', t); applyTheme(); }
 matchMedia('(prefers-color-scheme:dark)').addEventListener?.('change', applyTheme);
 
+function safeInset(side) {
+  const e = document.createElement('div');
+  e.style.cssText = 'position:fixed;visibility:hidden;padding-' + side + ':env(safe-area-inset-' + side + ',0px)';
+  document.body.appendChild(e); const v = parseFloat(getComputedStyle(e)['padding' + side[0].toUpperCase() + side.slice(1)]) || 0; e.remove(); return Math.round(v);
+}
 function openSettings() {
   applyTheme();
   const dlg = $('#settings');
   $('#apiurl').value = LS.get('padel.api', '') || CFG.API_URL || '';
   const cur = apiUrl(), src = LS.get('padel.api', '') ? 'guardada en este móvil' : 'de config.js';
   $('#setmsg').innerHTML = esc(({ demo: 'Estado: modo demo (sin URL).', checking: 'Estado: conectando…', ok: 'Estado: conectado con tu Excel.', error: 'Estado: error · ' + S.conn.msg }[S.conn.state])) +
-    (cur ? `<br>URL ${src}: …${esc(cur.slice(-22))}` : '') + `<br>Versión de la app: ${VERSION}` + (S.queue.length ? `<br>Cambios por enviar: ${S.queue.length}` : '');
+    (cur ? `<br>URL ${src}: …${esc(cur.slice(-22))}` : '') + `<br>Versión de la app: ${VERSION}` + `<br>Pantalla: ventana ${innerWidth}×${innerHeight} · pantalla ${screen.width}×${screen.height} · instalada ${navigator.standalone || matchMedia('(display-mode: standalone)').matches ? 'sí' : 'no'} · zona segura arriba ${safeInset('top')} abajo ${safeInset('bottom')}` + (S.queue.length ? `<br>Cambios por enviar: ${S.queue.length}` : '');
   $('#setmsg').className = 'hint' + (S.conn.state === 'error' ? ' err' : S.conn.state === 'ok' ? ' ok' : '');
   const link = $('#sheetlink'), url = LS.get('padel.sheet', '');
   link.hidden = !url; if (url) link.href = url;

@@ -182,3 +182,52 @@ function activarRapido() {
   calentar_();
 }
 function calentar_() { datos_(true); }
+
+/* ===== CLASIFICACIÓN NUEVA (reglas actuales) =====
+   Crea (o rehace) una pestaña «Clasificación nueva» con fórmulas que cuentan
+   los sets por juegos: ganar = 2 puntos, perder 6-5 = 1 punto, perder = 0.
+   NO toca tu pestaña «Clasificación» antigua. Ejecuta una vez: crearClasificacionNueva */
+function crearClasificacionNueva() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  faltas_(ss);                                   // asegura la hoja «Faltas»
+  const aj = ss.getSheetByName('Ajustes');
+  const nombres = aj.getRange('A3:A6').getValues().map(r => String(r[0]).trim());
+  let sh = ss.getSheetByName('Clasificación nueva');
+  if (sh) sh.clear(); else sh = ss.insertSheet('Clasificación nueva');
+  const R = n => `Partidos!${n}$${PRIMERA}:${n}$${ULTIMA}`;
+  const B = R('$B'), C = R('$C'), D = R('$D'), E = R('$E'), F = R('$F'), G = R('$G');
+  sh.getRange('A1').setValue('CLASIFICACIÓN · reglas por juegos').setFontSize(16).setFontWeight('bold');
+  sh.getRange('A2').setValue('Ganar el set = 2 pts · perder 6-5 = 1 pt · perder por más = 0 pts. Se calcula sola desde «Partidos».').setFontColor('#666666');
+  // tabla de cálculo (sin ordenar) en H4:R8
+  const cab = ['Jugadora', 'Puntos', 'Ganados', 'Perdidos', 'Sets', 'Juegos a favor', 'Juegos en contra', 'Dif. juegos', 'Dobles faltas', 'Pagadas', 'Pendientes'];
+  sh.getRange('H4:R4').setValues([cab]).setFontWeight('bold');
+  const filas = nombres.map((n, i) => {
+    const r = 5 + i, p = `$H${r}`;
+    const in1 = `((${B}=${p})+(${C}=${p}))`, in2 = `((${D}=${p})+(${E}=${p}))`;
+    return [n,
+      `=SUMPRODUCT(${in1}*((${F}>${G})*2+(${F}=5)*(${G}=6)))+SUMPRODUCT(${in2}*((${G}>${F})*2+(${G}=5)*(${F}=6)))`,
+      `=SUMPRODUCT(${in1}*(${F}>${G}))+SUMPRODUCT(${in2}*(${G}>${F}))`,
+      `=L${r}-J${r}`,
+      `=SUMPRODUCT(${in1}*((${F}+${G})>0))+SUMPRODUCT(${in2}*((${F}+${G})>0))`,
+      `=SUMPRODUCT(${in1}*${F})+SUMPRODUCT(${in2}*${G})`,
+      `=SUMPRODUCT(${in1}*${G})+SUMPRODUCT(${in2}*${F})`,
+      `=M${r}-N${r}`,
+      `=COUNTIF(Faltas!$B:$B,${p})`,
+      `=COUNTIFS(Faltas!$B:$B,${p},Faltas!$C:$C,"<>")`,
+      `=P${r}-Q${r}`];
+  });
+  sh.getRange(5, 8, filas.length, 11).setFormulas(filas.map(f => ['="' + f[0] + '"'].concat(f.slice(1))));
+  sh.getRange('H3').setValue('Datos de cálculo (no tocar)').setFontColor('#999999');
+  sh.getRange('H3:R8').setFontColor('#999999');
+  // tabla ordenada visible A4:I8 : puesto, jugadora, puntos, ganados, perdidos, sets, juegos, dif, dobles faltas
+  sh.getRange('A4:G4').setValues([['Puesto', 'Jugadora', 'Puntos', 'Ganados', 'Perdidos', 'Sets', 'Dif. juegos']]).setFontWeight('bold').setBackground('#d9f74a');
+  sh.getRange('B5').setFormula('=SORT({H5:H8,I5:I8,J5:J8,K5:K8,L5:L8,O5:O8},2,FALSE,3,FALSE,6,FALSE)');
+  for (let i = 0; i < nombres.length; i++) sh.getRange(5 + i, 1).setValue(i + 1);
+  sh.getRange('A11').setValue('DOBLES FALTAS (cervezas)').setFontWeight('bold');
+  sh.getRange('A12:D12').setValues([['Jugadora', 'Dobles faltas', 'Pagadas', 'Pendientes']]).setFontWeight('bold').setBackground('#ffe0a3');
+  sh.getRange('A13').setFormula('=SORT({H5:H8,P5:P8,Q5:Q8,R5:R8},2,FALSE)');
+  sh.setColumnWidths(1, 7, 105); sh.setColumnWidth(2, 140);
+  sh.getRange('H4:R4').setWrap(true);
+  ss.setActiveSheet(sh);
+  SpreadsheetApp.getUi && SpreadsheetApp.getActive().toast('Clasificación nueva lista', 'Padelurdas', 5);
+}
