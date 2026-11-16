@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const CFG = window.PADELURDAS_CONFIG || {};
-const VERSION = '15-nov-o';
+const VERSION = '16-nov-a';
 
 /* altura real de la pantalla (iOS/Android): evita huecos bajo la barra */
 function fitApp() {
@@ -292,7 +292,10 @@ rebuild();
 
 /* ---------- helpers de vista ---------- */
 const idx = n => Math.max(0, (S.data?.players || []).indexOf(n)) % 4;
-const av = (n, small) => `<span class="av c${idx(n)} ${small ? 's' : ''}">${esc((n || '?')[0].toUpperCase())}</span>`;
+const PHOTOS = { adela: 'fotos/adela.jpg', uxue: 'fotos/uxue.jpg', txiki: 'fotos/txiki.jpg', andrea: 'fotos/andrea.jpg' };
+const photoOf = n => PHOTOS[String(n || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')];
+const av = (n, small) => { const ph = photoOf(n);
+  return `<span class="av c${idx(n)} ${small ? 's' : ''} ${ph ? 'ph' : ''}"${ph ? ` style="background-image:url(${ph})"` : ''}>${ph ? '' : esc((n || '?')[0].toUpperCase())}</span>`; };
 const avs = team => `<span class="avs">${team.map(n => av(n, true)).join('')}</span>`;
 const pairings = p => [[[p[0], p[1]], [p[2], p[3]]], [[p[0], p[2]], [p[1], p[3]]], [[p[0], p[3]], [p[1], p[2]]]];
 const names = t => t.join(' y ');

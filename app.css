@@ -453,3 +453,6 @@ a.btn{text-decoration:none}
 .cover b{font-size:16px;font-family:var(--disp)}.cover em{font-style:normal;font-size:11px;color:var(--ink2)}
 @media print{.cover>div{break-inside:avoid}}
 @media (pointer:coarse){.print-only-desk{display:none}}
+.av.ph{background-size:cover;background-position:center 30%;background-repeat:no-repeat;box-shadow:0 0 0 2px var(--c),0 0 0 4px var(--card)}
+.av.s.ph{box-shadow:0 0 0 1.5px var(--c)}
+.pod .av.ph{box-shadow:0 0 0 3px var(--c),0 6px 16px -6px var(--shadow)}
