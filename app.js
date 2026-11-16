@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const CFG = window.PADELURDAS_CONFIG || {};
-const VERSION = '15-nov-n';
+const VERSION = '15-nov-o';
 
 /* altura real de la pantalla (iOS/Android): evita huecos bajo la barra */
 function fitApp() {
@@ -481,8 +481,8 @@ function repRange() {
 const inRange = (date, { from, to }) => date ? (!from || date >= from) && (!to || date <= to) : !from && !to;
 
 
-function coverHtml(d, st, flog, ms) {
-  if (!ms.length) return '';
+function coverData(d, st, flog, ms) {
+  if (!ms.length) return [];
   const champ = st[0], fl = d.players.map(n => ({ n, c: flog.filter(f => f.name === n).length })).sort((a, b) => b.c - a.c)[0];
   const sets = st.slice().sort((a, b) => b.played - a.played)[0];
   const S2 = streaks({ players: d.players, matches: ms });
@@ -493,7 +493,74 @@ function coverHtml(d, st, flog, ms) {
     bs && bs[1].best >= 2 ? ['🔥', 'Mejor racha', bs[0], `${bs[1].best} victorias seguidas`] : null,
     sets && sets.played ? ['🎾', 'Más sets jugados', sets.name, `${sets.played} sets`] : null
   ].filter(Boolean);
+  return cells;
+}
+function coverHtml(d, st, flog, ms) {
+  const cells = coverData(d, st, flog, ms); if (!cells.length) return '';
   return `<div class="cover">${cells.map(c => `<div><span>${c[0]}</span><small>${c[1]}</small><b>${esc(c[2])}</b><em>${c[3]}</em></div>`).join('')}</div>`;
+}
+
+/* ---------- PDF del informe (sin imprimir: vale para iPhone y Android) ---------- */
+function reportData() {
+  const d = S.data, rg = repRange();
+  const ms = d.matches.filter(m => m.valid !== false && inRange(m.date, rg)).sort(byDate);
+  const st = computeStandings(d.players, ms, d.pts), flog = d.faultLog.filter(f => inRange(f.date, rg));
+  const dates = ms.map(m => m.date).filter(Boolean);
+  return { d, rg, ms, st, flog, pairs: pairStats(ms), from: rg.from || dates[0], to: rg.to || dates[dates.length - 1] || todayISO(), days: new Set(dates).size };
+}
+function buildPdf() {
+  const { d, ms, st, flog, pairs, from, to, days } = reportData(), P = window.PadelPDF, doc = new P.Doc();
+  doc.rect(0, P.H - 92, P.W, 92, '#15492c');
+  doc.text(P.M, P.H - 40, 'PADELURDAS', 10, { bold: true, color: '#d9f74a' });
+  doc.text(P.M, P.H - 66, 'Informe del periodo', 24, { bold: true, color: '#ffffff' });
+  doc.text(P.W - P.M, P.H - 44, `${from ? fmtMed(from) : '-'}  a  ${fmtMed(to)}`, 10, { bold: true, color: '#ffffff', align: 'r' });
+  doc.text(P.W - P.M, P.H - 60, `${ms.length} sets - ${days} dia${days === 1 ? '' : 's'} de juego`, 9, { color: '#d9f74a', align: 'r' });
+  doc.y = P.H - 100;
+  const cells = coverData(d, st, flog, ms);
+  if (cells.length) {
+    doc.y -= 14; const w = (P.W - 2 * P.M - 10) / 2;
+    cells.forEach((c, i) => {
+      const x = P.M + (i % 2) * (w + 10), y = doc.y - Math.floor(i / 2) * 50;
+      doc.rect(x, y - 42, w, 44, '#f1f6ec');
+      doc.text(x + 10, y - 13, c[1].toUpperCase(), 7.5, { bold: true, color: '#5b6b62' });
+      doc.text(x + 10, y - 27, c[2], 13, { bold: true });
+      doc.text(x + 10, y - 38, String(c[3]).replace(/<[^>]+>/g, ''), 8, { color: '#5b6b62' });
+    });
+    doc.y -= Math.ceil(cells.length / 2) * 50 + 2;
+  }
+  doc.h('Clasificacion del periodo');
+  doc.table([{ t: '#', w: 24, a: 'c' }, { t: 'Jugadora', w: 130, a: 'l' }, { t: 'Sets', w: 40, a: 'c' }, { t: 'G', w: 34, a: 'c' }, { t: 'P', w: 34, a: 'c' }, { t: '%', w: 40, a: 'c' }, { t: 'Juegos', w: 64, a: 'c' }, { t: 'Pts', w: 40, a: 'c' }, { t: 'Dobles f.', w: 56, a: 'c' }],
+    st.map(x => [String(x.pos), { t: x.name, bold: true }, String(x.played), String(x.wins), String(x.losses), Math.round(x.pct * 100) + '%', `${x.setsFor}-${x.setsAgainst}`, { t: String(x.points), bold: true }, String(flog.filter(f => f.name === x.name).length)]), { rh: 19 });
+  doc.note(`G = sets ganados - P = perdidos - Pts: ${d.pts.win} por set ganado y ${d.pts.tb} si se pierde 5-6 (tie-break).`);
+  if (pairs.length) {
+    doc.h('Parejas');
+    doc.table([{ t: 'Pareja', w: 190, a: 'l' }, { t: 'Sets', w: 40, a: 'c' }, { t: 'G', w: 36, a: 'c' }, { t: 'P', w: 36, a: 'c' }, { t: '%', w: 46, a: 'c' }, { t: 'Juegos', w: 70, a: 'c' }],
+      pairs.map(p => [{ t: p.pair.join(' + '), bold: true }, String(p.played), String(p.wins), String(p.played - p.wins), Math.round(p.wins / p.played * 100) + '%', `${p.gf}-${p.ga}`]));
+  }
+  doc.h('Sets jugados');
+  if (ms.length) {
+    let last = null;
+    doc.table([{ t: 'Dia', w: 58, a: 'l' }, { t: 'Pareja A', w: 170, a: 'l' }, { t: 'Res.', w: 50, a: 'c' }, { t: 'Pareja B', w: 170, a: 'l' }],
+      ms.map(m => { const aw = m.sa > m.sb, nd = m.date !== last; last = m.date;
+        return Object.assign([nd ? (m.date ? fmtTiny(m.date) : '-') : '', { t: m.a.join(' y '), bold: aw }, { t: `${m.sa}-${m.sb}`, bold: true }, { t: m.b.join(' y '), bold: !aw }], { group: nd }); }), { rh: 16 });
+  } else doc.note('No hay sets en este periodo.');
+  doc.h('Dobles faltas y cervezas');
+  doc.table([{ t: 'Jugadora', w: 110, a: 'l' }, { t: 'Faltas', w: 50, a: 'c' }, { t: 'Pagadas', w: 56, a: 'c' }, { t: 'Pendientes', w: 64, a: 'c' }, { t: 'Fechas', w: 200, a: 'l' }],
+    d.players.map(n => { const f = flog.filter(x => x.name === n), p = f.filter(x => x.paid).length;
+      return [{ t: n, bold: true }, { t: String(f.length), bold: true }, String(p), { t: String(f.length - p), bold: true }, f.length ? f.map(x => x.date ? fmtTiny(x.date) : 'antes').join(', ').slice(0, 48) : '-']; }), { rh: 18 });
+  doc.note('Generado el ' + fmtMed(todayISO()) + ' con Padelurdas');
+  return doc.blob();
+}
+async function savePdf() {
+  if (!S.data || !window.PadelPDF) return toast('Todavia no hay datos para el informe', { err: true });
+  let blob; try { blob = buildPdf(); } catch (e) { console.error(e); return toast('No se pudo crear el PDF', { err: true }); }
+  const name = `Padelurdas-informe-${todayISO()}.pdf`, file = new File([blob], name, { type: 'application/pdf' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Informe Padelurdas' }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = name; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 function viewInforme() {
   const d = S.data; if (!d) return skeleton();
@@ -518,7 +585,8 @@ function viewInforme() {
         <label>Desde<input type="date" id="rfrom" value="${esc(rg.from)}"></label>
         <label>Hasta<input type="date" id="rto" value="${esc(rg.to)}"></label>
       </div>
-      <button class="btn lime save" data-act="print" style="margin-top:12px">${ICON.print} Imprimir / guardar PDF</button>
+      <button class="btn lime save" data-act="pdf" style="margin-top:12px">${ICON.print} Guardar / compartir PDF</button>
+      <button class="btn ghost print-only-desk" data-act="print" style="margin-top:8px">Imprimir</button>
     </div>
 
     <article class="paper">
@@ -715,6 +783,7 @@ document.addEventListener('click', ev => {
   else if (a === 'debt-x') { LS.set('padel.debtx', todayISO()); render(); }
   else if (a === 'filter') { S.filter = el.dataset.p; render(); }
   else if (a === 'preset') { S.rep = { preset: el.dataset.p, from: '', to: '' }; render(); }
+  else if (a === 'pdf') savePdf();
   else if (a === 'print') { try { window.print(); } catch { toast('Usa Compartir → Imprimir de tu navegador', { err: true }); } }
   else if (a === 'theme') setTheme(el.dataset.t);
   else if (a === 'theme-next') setTheme(resolvedTheme() === 'dark' ? 'light' : 'dark');
