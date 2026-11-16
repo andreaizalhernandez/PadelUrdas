@@ -413,3 +413,9 @@ div.shame{padding:14px 16px;border-radius:18px;background:var(--beer-bg);border:
   .pill{padding:5px 8px;font-size:11px;margin-right:2px}
 }
 @media (max-width:380px){.brand span:last-child{display:none}.conn{font-size:11px}.icon-btn{width:34px}}
+
+/* el fondo bajo la barra sigue el color de la barra (por si el sistema deja un hueco) */
+html{background:var(--bg);background-color:var(--navsolid)}
+html{background-image:linear-gradient(var(--bg),var(--bg));background-repeat:no-repeat;background-size:100% calc(100% - 60px)}
+.tabs button i{width:26px;height:26px}
+.tabs button span{font-size:11.5px}

@@ -1,11 +1,17 @@
 (() => {
 'use strict';
 const CFG = window.PADELURDAS_CONFIG || {};
-const VERSION = '15-nov-j';
+const VERSION = '15-nov-k';
 
 /* altura real de la pantalla (iOS/Android): evita huecos bajo la barra */
 function fitApp() {
-  const h = Math.round(window.innerHeight);
+  let h = Math.round(window.innerHeight);
+  /* iPhone instalada: iOS a veces da una altura más corta que la pantalla (deja un hueco abajo) */
+  const standalone = navigator.standalone || (matchMedia && matchMedia('(display-mode: standalone)').matches);
+  if (standalone && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
+    const sh = window.innerWidth <= window.innerHeight ? screen.height : screen.width;
+    if (sh > h && sh - h <= 130) h = sh;
+  }
   document.documentElement.style.setProperty('--app-h', h + 'px');
 }
 fitApp();
